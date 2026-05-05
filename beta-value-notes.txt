@@ -1,0 +1,7 @@
+
+This file is for logging interesting values for 𝛽 that I find in my explorations of the isocline viewer.
+
+
+4474.252
+
+

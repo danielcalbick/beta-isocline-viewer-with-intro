@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>ζ — β-Isocline Explorer</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
@@ -996,6 +996,36 @@ function drawGrid(W, H) {
 
 // Trajectories: each α-walk is one polyline through time.
 // Color along the polyline varies with TIME (matches MATLAB FaceVertexCData=clr).
+/* Liang-Barsky line clipping — clips segment (x1,y1)→(x2,y2) to the rect
+   [xMin,xMax]×[yMin,yMax]. Returns null if entirely outside, else
+   [cx1,cy1,cx2,cy2] with both endpoints inside the rect. We use this to
+   keep Path2D coordinates bounded — otherwise at extreme zoom the rasterizer
+   allocates huge intermediate buffers from off-screen endpoints and iOS
+   Safari OOM-kills the tab. */
+function clipLB(x1, y1, x2, y2, xMin, yMin, xMax, yMax) {
+  let t0 = 0, t1 = 1;
+  const dx = x2 - x1, dy = y2 - y1;
+  // 4 edges as (p, q): segment passes if for each edge p*t <= q
+  const ps = [-dx, dx, -dy, dy];
+  const qs = [x1 - xMin, xMax - x1, y1 - yMin, yMax - y1];
+  for (let i = 0; i < 4; i++) {
+    const p = ps[i], q = qs[i];
+    if (p === 0) {
+      if (q < 0) return null;          // parallel and outside this edge
+    } else {
+      const r = q / p;
+      if (p < 0) {
+        if (r > t1) return null;
+        if (r > t0) t0 = r;
+      } else {
+        if (r < t0) return null;
+        if (r < t1) t1 = r;
+      }
+    }
+  }
+  return [x1 + t0*dx, y1 + t0*dy, x1 + t1*dx, y1 + t1*dy];
+}
+
 function drawTrajectories(W, H) {
   const pd = S.pd; if (!pd) return 0;
   const { xMat, yMat, nrows, nwalks } = pd;
@@ -1016,30 +1046,37 @@ function drawTrajectories(W, H) {
   const paths = [];
   for (let k = 0; k < N_BINS; k++) paths.push(new Path2D());
 
+  // Clip every segment to a rect 1 viewport beyond the canvas in each
+  // direction. That bound keeps Path2D coordinates within ~[-W, 2W]×[-H, 2H]
+  // regardless of zoom level, while still leaving room for line caps/joins.
+  const cxMin = -W, cyMin = -H, cxMax = 2*W, cyMax = 2*H;
   let segs = 0;
   for (let j = 0; j < nwalks; j++) {
     let curBin = -1;
-    let gapped = true;
     let pSx = xMat[j] * sc + tcx;
     let pSy = -yMat[j] * sc + tcy;
-    let pIn = !(pSx < -2 || pSx > W+2 || pSy < -2 || pSy > H+2);
+    let lastDrawnX = NaN, lastDrawnY = NaN;
     for (let i = 1; i < nrows; i++) {
       const k = i * nwalks + j;
       const sx = xMat[k] * sc + tcx;
       const sy = -yMat[k] * sc + tcy;
-      const inside = !(sx < -2 || sx > W+2 || sy < -2 || sy > H+2);
-      if (!inside && !pIn) {
-        gapped = true;
-      } else {
+      const c = clipLB(pSx, pSy, sx, sy, cxMin, cyMin, cxMax, cyMax);
+      if (c) {
         const bin = binOf[i-1];
-        if (bin !== curBin || gapped) {
-          paths[bin].moveTo(pSx, pSy);
-          curBin = bin; gapped = false;
+        const path = paths[bin];
+        // Continue the polyline if the previous lineTo's endpoint matches
+        // this segment's start; otherwise moveTo the (clipped) start.
+        if (bin !== curBin || c[0] !== lastDrawnX || c[1] !== lastDrawnY) {
+          path.moveTo(c[0], c[1]);
         }
-        paths[bin].lineTo(sx, sy);
+        path.lineTo(c[2], c[3]);
+        curBin = bin;
+        lastDrawnX = c[2]; lastDrawnY = c[3];
         segs++;
+      } else {
+        curBin = -1;     // force a moveTo on next visible segment
       }
-      pSx = sx; pSy = sy; pIn = inside;
+      pSx = sx; pSy = sy;
     }
   }
 
@@ -1075,26 +1112,31 @@ function drawIsoclines(W, H) {
   const paths = [];
   for (let k = 0; k < N_BINS; k++) paths.push(new Path2D());
 
+  const cxMin = -W, cyMin = -H, cxMax = 2*W, cyMax = 2*H;
   let segs = 0;
   for (let i = 1; i < nrows; i++) {
     const off = i * nwalks;
     const path = paths[binOfRow[i]];
     let pSx = xMat[off] * sc + tcx;
     let pSy = -yMat[off] * sc + tcy;
-    let pIn = !(pSx < -2 || pSx > W+2 || pSy < -2 || pSy > H+2);
-    let gapped = true;
+    let lastDrawnX = NaN, lastDrawnY = NaN;
+    let needMove = true;
     for (let j = 1; j < nwalks; j++) {
       const sx = xMat[off + j] * sc + tcx;
       const sy = -yMat[off + j] * sc + tcy;
-      const inside = !(sx < -2 || sx > W+2 || sy < -2 || sy > H+2);
-      if (!inside && !pIn) {
-        gapped = true;
-      } else {
-        if (gapped) { path.moveTo(pSx, pSy); gapped = false; }
-        path.lineTo(sx, sy);
+      const c = clipLB(pSx, pSy, sx, sy, cxMin, cyMin, cxMax, cyMax);
+      if (c) {
+        if (needMove || c[0] !== lastDrawnX || c[1] !== lastDrawnY) {
+          path.moveTo(c[0], c[1]);
+          needMove = false;
+        }
+        path.lineTo(c[2], c[3]);
+        lastDrawnX = c[2]; lastDrawnY = c[3];
         segs++;
+      } else {
+        needMove = true;
       }
-      pSx = sx; pSy = sy; pIn = inside;
+      pSx = sx; pSy = sy;
     }
   }
 
@@ -1115,11 +1157,41 @@ function drawU1(W, H) {
   const { scale, cx, cy } = S.tx;
   ctx.lineWidth = 1.4;
   ctx.strokeStyle = 'rgba(220, 80, 100, 0.65)';
+  drawCircleSafe(cx, cy, scale,       W, H);
+  drawCircleSafe(cx, cy, scale * 0.5, W, H);
+}
+
+// Stroke a circle, but if its radius would cause the rasterizer to choke,
+// substitute a smaller circle that's tangent at the same point. Geometrically
+// the visible arc within the viewport is essentially identical for any radius
+// large compared to the viewport diagonal, so this preserves what the user
+// sees without feeding huge radii into CoreGraphics.
+function drawCircleSafe(cx, cy, r, W, H) {
+  const vcx = W / 2, vcy = H / 2;
+  const halfDiag = Math.hypot(W, H) * 0.5;
+  const dx = vcx - cx, dy = vcy - cy;
+  const dist = Math.hypot(dx, dy);
+  // Visibility: circle line passes through viewport iff |dist - r| ≤ halfDiag.
+  // Skip otherwise (circle entirely outside viewport, or viewport entirely
+  // inside the disk with the circle line off-screen).
+  if (Math.abs(dist - r) > halfDiag) return;
+  const R_MAX = 8 * halfDiag;
+  if (r > R_MAX) {
+    if (dist > 1e-9) {
+      // Move center along (c → v) direction so signed distance (dist - r)
+      // and tangent point are preserved, with smaller radius
+      const newR = R_MAX;
+      const newDist = newR + (dist - r);   // bounded by R_MAX + halfDiag
+      const ux = dx / dist, uy = dy / dist;
+      cx = vcx - newDist * ux;
+      cy = vcy - newDist * uy;
+      r = newR;
+    } else {
+      r = R_MAX;
+    }
+  }
   ctx.beginPath();
-  ctx.arc(cx, cy, scale, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.arc(cx, cy, scale * 0.5, 0, Math.PI * 2);
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
   ctx.stroke();
 }
 
@@ -1607,9 +1679,18 @@ function fitView() { autoFit(S.pd); draw(); }
 /* ═══════════════════════════════════════════════════
    PAN / ZOOM
 ═══════════════════════════════════════════════════ */
+// Sane bounds — beyond these, float precision degrades and rasterizers
+// start allocating absurd buffers. The viewport-clip in the drawers means
+// the page won't crash even past these, but capping keeps things crisp.
+const SCALE_MIN = 1e-6;
+const SCALE_MAX = 1e9;
+
 function applyZoom(f, ox, oy) {
   const { scale:sc, cx, cy } = S.tx;
-  const xf = (ox - cx) / sc, yf = (oy - cy) / sc, ns = sc * f;
+  const xf = (ox - cx) / sc, yf = (oy - cy) / sc;
+  let ns = sc * f;
+  if (ns < SCALE_MIN) ns = SCALE_MIN;
+  if (ns > SCALE_MAX) ns = SCALE_MAX;
   S.tx = { scale: ns, cx: ox - xf*ns, cy: oy - yf*ns };
   redraw();
 }
@@ -1638,6 +1719,9 @@ canvas.addEventListener('dblclick', () => fitView());
 const touches = new Map();
 canvas.addEventListener('touchstart', e => {
   for (const t of e.changedTouches) touches.set(t.identifier, { x: t.clientX, y: t.clientY });
+  // Two fingers down → pinch mode; cancel any in-progress single-finger pan
+  // so it doesn't fight with the pinch handler below.
+  if (e.touches.length >= 2) dragging = false;
 }, { passive:true });
 canvas.addEventListener('touchmove', e => {
   if (e.touches.length === 2) {
