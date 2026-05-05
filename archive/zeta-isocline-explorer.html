@@ -1,0 +1,1747 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ζ — β-Isocline Explorer</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #06060a;
+  --panel-bg: rgba(7,7,13,0.66);
+  --panel-border: rgba(255,255,255,0.09);
+  --text: rgba(255,255,255,0.78);
+  --text-dim: rgba(255,255,255,0.42);
+  --text-faint: rgba(255,255,255,0.28);
+  --hairline: rgba(255,255,255,0.06);
+  --accent: #93c5fd;
+  --accent-soft: rgba(147,197,253,0.32);
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+  width:100%; margin:0; padding:0;
+  height:100vh; height:100dvh;
+  overflow:hidden;
+  background:var(--bg);
+  font-family:'IBM Plex Mono','Courier New',monospace;
+  font-weight:400;
+  color:var(--text);
+  -webkit-font-smoothing:antialiased;
+  -webkit-text-size-adjust:100%;
+}
+
+#canvas { position:fixed; inset:0; display:block; cursor:crosshair; touch-action:none; }
+
+/* ── PANELS ─────────────────────────────────────── */
+.panel {
+  background:var(--panel-bg);
+  backdrop-filter:blur(20px) saturate(160%);
+  -webkit-backdrop-filter:blur(20px) saturate(160%);
+  border:1px solid var(--panel-border); border-radius:13px; overflow:hidden;
+  box-shadow:0 8px 32px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.06);
+}
+
+#left-stack {
+  position:fixed; z-index:20;
+  top:  max(12px, env(safe-area-inset-top, 12px));
+  left: max(12px, env(safe-area-inset-left, 12px));
+  width:280px; max-width:calc(100vw - 24px);
+  display:flex; flex-direction:column; gap:7px;
+  max-height:calc(100vh - 78px); max-height:calc(100dvh - 78px);
+  overflow-y:auto; overflow-x:hidden;
+  scrollbar-width:thin; scrollbar-color:rgba(255,255,255,0.15) transparent;
+  -webkit-overflow-scrolling:touch;
+}
+#left-stack::-webkit-scrollbar { width:4px; }
+#left-stack::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.18); border-radius:2px; }
+
+#right-stack {
+  position:fixed; z-index:20;
+  top:   max(12px, env(safe-area-inset-top, 12px));
+  right: max(12px, env(safe-area-inset-right, 12px));
+  width:280px; max-width:calc(100vw - 24px);
+  display:flex; flex-direction:column; gap:7px;
+  max-height:calc(100vh - 78px); max-height:calc(100dvh - 78px);
+  overflow-y:auto; overflow-x:hidden;
+  scrollbar-width:thin; scrollbar-color:rgba(255,255,255,0.15) transparent;
+  -webkit-overflow-scrolling:touch;
+}
+#right-stack::-webkit-scrollbar { width:4px; }
+#right-stack::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.18); border-radius:2px; }
+
+#status {
+  position:fixed; z-index:20;
+  bottom:max(12px, env(safe-area-inset-bottom, 12px));
+  left:  max(12px, env(safe-area-inset-left, 12px));
+  width:280px; max-width:calc(100vw - 24px);
+  padding:7px 12px;
+  font-size:9.5px; letter-spacing:0.04em;
+  color:var(--text-dim);
+}
+#status .k { color:var(--text-faint); }
+#status .v { color:var(--accent); font-weight:500; }
+
+/* ── HEADER (entire row clickable) ──────────────── */
+.panel-hdr {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:9px 12px; min-height:36px;
+  font-size:9.5px; letter-spacing:0.13em; text-transform:uppercase;
+  color:var(--text-dim);
+  cursor:pointer; user-select:none;
+  -webkit-tap-highlight-color:transparent;
+  transition:color 0.15s, background 0.15s;
+}
+.panel-hdr:hover  { color:rgba(255,255,255,0.7); }
+.panel-hdr:active { background:rgba(255,255,255,0.025); }
+.panel-hdr.open   { border-bottom:1px solid var(--hairline); }
+
+.hdr-title { flex:1; padding-right:8px; display:flex; align-items:center; min-width:0;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.hdr-ctls  { display:flex; align-items:center; gap:14px; flex-shrink:0; }
+
+.layer-dot {
+  display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:8px;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,0.16);
+}
+
+.chevron {
+  font-size:8px; opacity:0.55; display:inline-block;
+  transition:transform 0.22s ease;
+  /* hit area: visual size 8px, tap area ~24px via padding+negative-margin */
+  padding:8px; margin:-8px;
+}
+.chevron.open { transform:rotate(90deg); }
+
+/* ── VISIBILITY TOGGLE ──────────────────────────── */
+/* visual 28×14, hit ~48×34 via ::before overlay */
+.viz-tog {
+  position:relative; cursor:pointer; flex-shrink:0;
+  width:28px; height:14px; border-radius:7px;
+  background:rgba(255,255,255,0.08);
+  transition:background 0.18s;
+  -webkit-tap-highlight-color:transparent;
+}
+.viz-tog::before {
+  content:""; position:absolute; inset:-10px;
+}
+.viz-tog::after {
+  content:""; position:absolute; top:1.5px; left:1.5px;
+  width:11px; height:11px; border-radius:50%;
+  background:rgba(255,255,255,0.42);
+  transition:left 0.18s, background 0.18s;
+  box-shadow:0 1px 2px rgba(0,0,0,0.4);
+}
+.viz-tog.on { background:var(--accent-soft); }
+.viz-tog.on::after {
+  left:15.5px; background:var(--accent);
+  box-shadow:0 1px 2px rgba(0,0,0,0.4), 0 0 8px rgba(147,197,253,0.6);
+}
+
+/* ── PANEL BODY collapse ────────────────────────── */
+.panel-body {
+  display:grid; grid-template-rows:0fr; opacity:0;
+  transition:grid-template-rows 0.3s cubic-bezier(.4,0,.2,1), opacity 0.2s ease;
+}
+.panel-body.open { grid-template-rows:1fr; opacity:1; }
+.panel-inner    { overflow:hidden; padding:11px 13px; }
+.layer-panel.dim .panel-body { opacity:0.42; }
+
+/* ── PARAM ROWS ─────────────────────────────────── */
+.row { margin-bottom:12px; }
+.row:last-child { margin-bottom:0; }
+.lbl { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:5px; }
+.lname {
+  font-size:14px; color:rgba(255,255,255,0.55); letter-spacing:0.01em;
+  font-family:"KaTeX_Math","STIX Two Math",Georgia,serif; font-style:italic;
+}
+.lname .sub {
+  font-size:9.5px; letter-spacing:0.06em; color:var(--text-faint);
+  font-family:"IBM Plex Mono",monospace; font-style:normal;
+}
+.lval {
+  font-size:12px; font-weight:500; color:var(--accent);
+  letter-spacing:0.02em; min-width:70px; text-align:right;
+  cursor:text; padding:2px 0;
+  border-bottom:1px solid transparent; transition:border-color 0.15s;
+}
+.lval:hover { border-bottom-color:rgba(147,197,253,0.35); }
+.lval-input {
+  font-family:"IBM Plex Mono",monospace; font-size:13px;
+  color:var(--accent); background:transparent;
+  border:none; border-bottom:1px solid var(--accent);
+  outline:none; text-align:right; width:90px; padding:0;
+  letter-spacing:0.02em;
+}
+
+/* ── SLIDERS (thin track, big touch zone via vertical padding) ─ */
+input[type=range] {
+  -webkit-appearance:none; appearance:none;
+  width:100%; outline:none; cursor:ew-resize; display:block;
+  margin:0; padding:11px 0;            /* tap zone ~24px tall */
+  background:transparent; border:none;
+}
+input[type=range]::-webkit-slider-runnable-track {
+  height:2px; border-radius:1px; background:rgba(255,255,255,0.1);
+}
+input[type=range]::-moz-range-track {
+  height:2px; border-radius:1px; background:rgba(255,255,255,0.1);
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance:none;
+  width:13px; height:13px; border-radius:50%; margin-top:-5.5px;
+  background:radial-gradient(circle at 38% 32%, rgba(255,255,255,0.95) 0%, rgba(160,200,255,0.82) 42%, rgba(85,148,238,0.96) 100%);
+  cursor:ew-resize;
+  box-shadow:0 0 10px rgba(147,197,253,0.55), 0 2px 4px rgba(0,0,0,0.38), inset 0 1px 0 rgba(255,255,255,0.6);
+  transition:box-shadow 0.15s, transform 0.15s;
+}
+input[type=range]::-webkit-slider-thumb:hover {
+  box-shadow:0 0 16px rgba(147,197,253,0.8), 0 2px 4px rgba(0,0,0,0.38), inset 0 1px 0 rgba(255,255,255,0.6);
+  transform:scale(1.1);
+}
+input[type=range]::-moz-range-thumb {
+  width:13px; height:13px; border-radius:50%; border:none;
+  background:radial-gradient(circle at 38% 32%, rgba(255,255,255,0.95) 0%, rgba(160,200,255,0.82) 42%, rgba(85,148,238,0.96) 100%);
+  cursor:ew-resize;
+  box-shadow:0 0 10px rgba(147,197,253,0.55), 0 2px 4px rgba(0,0,0,0.38);
+}
+
+/* ── COLORMAP CHIPS ─────────────────────────────── */
+.cmap-row { display:flex; gap:5px; flex-wrap:wrap; margin-top:6px; }
+.cmap-chip {
+  flex:1 1 calc(25% - 5px); min-width:0;
+  height:20px; border-radius:3px; cursor:pointer;
+  border:1.5px solid transparent;
+  background-repeat:no-repeat;
+  background-clip:padding-box;
+  background-size:100% 100%;
+  overflow:hidden;
+  transition:border-color 0.15s, transform 0.12s;
+  -webkit-tap-highlight-color:transparent;
+}
+.cmap-chip:hover  { transform:translateY(-1px); }
+.cmap-chip:active { transform:translateY(0); }
+.cmap-chip.on     { border-color:rgba(147,197,253,0.85);
+  box-shadow:0 0 0 1px rgba(7,7,13,0.6) inset; }
+
+/* ── BUTTONS ────────────────────────────────────── */
+.btn-row { display:flex; gap:6px; margin-top:10px; }
+.btn {
+  flex:1; background:rgba(255,255,255,0.04);
+  border:1px solid var(--panel-border); border-radius:6px;
+  color:rgba(255,255,255,0.6); font-family:inherit;
+  font-size:9px; letter-spacing:0.1em; text-transform:uppercase;
+  padding:9px 4px; cursor:pointer; transition:all 0.15s;
+  white-space:nowrap; -webkit-tap-highlight-color:transparent;
+}
+.btn:hover  { background:rgba(255,255,255,0.08); color:rgba(255,255,255,0.9); }
+.btn:active { background:rgba(255,255,255,0.06); }
+.btn.busy   { opacity:0.5; cursor:wait; }
+
+/* ── FINE TUNE ──────────────────────────────────── */
+.beta-rt { display:flex; gap:8px; align-items:baseline; }
+.fine-btn {
+  background:rgba(255,255,255,0.04);
+  border:1px solid var(--panel-border); border-radius:100px;
+  color:rgba(255,255,255,0.32);
+  font-family:inherit; font-size:9px; letter-spacing:0.08em;
+  padding:4px 10px; min-height:23px;
+  cursor:pointer; transition:all 0.15s;
+  -webkit-tap-highlight-color:transparent;
+  white-space:nowrap;
+}
+.fine-btn:hover  { background:rgba(255,255,255,0.08); color:rgba(255,255,255,0.65); }
+.fine-btn:active { background:rgba(255,255,255,0.06); }
+.fine-btn.on {
+  background:rgba(147,197,253,0.12);
+  border-color:rgba(147,197,253,0.35);
+  color:var(--accent);
+}
+.fine-sub {
+  margin-top:9px;
+  padding:0 11px;
+  background:rgba(147,197,253,0.04);
+  border-left:1.5px solid rgba(147,197,253,0.22);
+  border-radius:0 4px 4px 0;
+  max-height:0; overflow:hidden; opacity:0;
+  transition:max-height 0.3s ease, opacity 0.22s ease,
+             padding 0.3s ease, margin 0.3s ease;
+}
+.fine-sub.open {
+  max-height:240px;
+  padding:9px 11px;
+  opacity:1;
+}
+.fine-sub .row   { margin-bottom:9px; }
+.fine-sub .row:last-child { margin-bottom:0; }
+.fine-sub .lname { font-size:13px; }
+.fine-sub .lval  { font-size:11.5px; }
+
+/* ── PARAMS MINI-MODE ───────────────────────────── */
+/* The params panel body is always rendered; the .mini class trims content
+   to a single carousel row and adds dots. Other panels still collapse fully. */
+#pb-params { grid-template-rows:1fr !important; opacity:1 !important; }
+#pb-params.mini .formula,
+#pb-params.mini .btn-row,
+#pb-params.mini .mrow { display:none; }
+#pb-params.mini .mrow.active { display:revert; }
+#pb-params.mini .panel-inner { padding:9px 13px 8px; }
+
+.mini-dots { display:none; justify-content:center; gap:7px;
+  margin-top:6px; padding:3px 0; }
+#pb-params.mini .mini-dots { display:flex; }
+.m-dot {
+  width:5px; height:5px; border-radius:50%;
+  background:rgba(255,255,255,0.18);
+  cursor:pointer; transition:background 0.15s, transform 0.15s;
+  -webkit-tap-highlight-color:transparent;
+  /* enlarged hit area */
+  box-shadow:0 0 0 6px transparent;
+}
+.m-dot:hover { background:rgba(255,255,255,0.35); transform:scale(1.15); }
+.m-dot.on { background:var(--accent); box-shadow:0 0 5px rgba(147,197,253,0.6); }
+.m-dot.on:hover { background:var(--accent); }
+
+/* ── ACTION BAR (bottom-right) ──────────────────── */
+#action-bar {
+  position:fixed; z-index:20;
+  bottom:max(12px, env(safe-area-inset-bottom, 12px));
+  right: max(12px, env(safe-area-inset-right, 12px));
+  display:flex; gap:6px;
+}
+.floating-btn {
+  background:var(--panel-bg);
+  backdrop-filter:blur(20px) saturate(160%);
+  -webkit-backdrop-filter:blur(20px) saturate(160%);
+  border:1px solid var(--panel-border); border-radius:10px;
+  color:rgba(255,255,255,0.62);
+  font-family:inherit; font-size:9.5px;
+  letter-spacing:0.09em; text-transform:uppercase;
+  padding:10px 14px; cursor:pointer; transition:all 0.15s;
+  -webkit-tap-highlight-color:transparent;
+  white-space:nowrap;
+  box-shadow:0 4px 16px rgba(0,0,0,0.35);
+}
+.floating-btn:hover  { background:rgba(7,7,13,0.82); color:rgba(255,255,255,0.95); }
+.floating-btn:active { background:rgba(7,7,13,0.88); }
+
+/* ── LAYER BAR (compact-mode pictograph row) ────── */
+/* No panel background — each control is its own free-floating element */
+.layer-bar {
+  display:none;  /* shown only on mobile */
+  align-items:center;
+  justify-content:flex-end;
+  gap:8px;
+}
+.layer-icon {
+  width:38px; height:38px; border-radius:50%;
+  background:var(--panel-bg);
+  backdrop-filter:blur(20px) saturate(160%);
+  -webkit-backdrop-filter:blur(20px) saturate(160%);
+  border:1px solid var(--panel-border);
+  box-shadow:0 4px 16px rgba(0,0,0,0.35);
+  cursor:pointer; -webkit-tap-highlight-color:transparent;
+  display:flex; align-items:center; justify-content:center;
+  padding:0;
+  color:rgba(255,255,255,0.28);
+  transition:color 0.18s, transform 0.14s, background 0.18s;
+}
+.layer-icon.on { color:var(--icon-color, var(--accent)); }
+.layer-icon:hover  { transform:scale(1.06); background:rgba(7,7,13,0.78); }
+.layer-icon:active { transform:scale(0.94); }
+.layer-icon svg { display:block; }
+
+.layer-arrow {
+  background:transparent; border:none; padding:8px 4px;
+  cursor:pointer; -webkit-tap-highlight-color:transparent;
+  display:flex; align-items:center;
+  color:rgba(255,255,255,0.5);
+  transition:color 0.15s;
+}
+.layer-arrow:hover { color:rgba(255,255,255,0.9); }
+.layer-arrow svg { display:block; transition:transform 0.22s ease; }
+.layer-arrow.open svg { transform:rotate(180deg); }
+
+/* ── TOOLTIP (custom — works on hover and long-press) ─ */
+.tooltip {
+  position:fixed; z-index:50;
+  background:rgba(7,7,13,0.88);
+  backdrop-filter:blur(10px) saturate(160%);
+  -webkit-backdrop-filter:blur(10px) saturate(160%);
+  border:1px solid rgba(255,255,255,0.12);
+  border-radius:7px;
+  color:rgba(255,255,255,0.88);
+  font-size:10.5px; letter-spacing:0.03em;
+  padding:6px 10px;
+  pointer-events:none;
+  opacity:0; transition:opacity 0.15s ease;
+  white-space:normal; max-width:min(240px, calc(100vw - 24px));
+  line-height:1.35;
+  box-shadow:0 4px 18px rgba(0,0,0,0.55);
+}
+.tooltip.show { opacity:1; }
+
+/* ── MOBILE PARAMS FAB (menu button) ────────────── */
+.m-circ {
+  width:38px; height:38px; border-radius:50%;
+  background:var(--panel-bg);
+  backdrop-filter:blur(20px) saturate(160%);
+  -webkit-backdrop-filter:blur(20px) saturate(160%);
+  border:1px solid var(--panel-border);
+  box-shadow:0 4px 16px rgba(0,0,0,0.35);
+  cursor:pointer; -webkit-tap-highlight-color:transparent;
+  display:flex; align-items:center; justify-content:center;
+  padding:0;
+  color:rgba(255,255,255,0.55);
+  transition:color 0.18s, transform 0.14s, background 0.18s, border-color 0.18s;
+}
+.m-circ:hover  { transform:scale(1.06); color:rgba(255,255,255,0.95); }
+.m-circ:active { transform:scale(0.94); }
+.m-circ.m-active {
+  color:var(--accent);
+  background:rgba(147,197,253,0.12);
+  border-color:rgba(147,197,253,0.4);
+}
+#menu-btn {
+  display:none;  /* shown only on mobile */
+  position:fixed; z-index:25;
+  top:  max(12px, env(safe-area-inset-top, 12px));
+  left: max(12px, env(safe-area-inset-left, 12px));
+}
+
+/* ── SETTINGS POPOVER + GEAR ─────────────────────── */
+#settings-popover {
+  position:fixed; z-index:21;
+  bottom: calc(48px + max(12px, env(safe-area-inset-bottom, 12px)));
+  left:   max(12px, env(safe-area-inset-left, 12px));
+  width:240px; padding:11px 14px;
+  opacity:0; visibility:hidden;
+  transform:translateY(6px);
+  transition:opacity 0.18s ease, transform 0.18s ease, visibility 0.18s;
+}
+#settings-popover.show {
+  opacity:1; visibility:visible;
+  transform:translateY(0);
+}
+#status { display:flex; align-items:center; gap:10px; }
+.status-text { flex:1; min-width:0;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.status-gear {
+  background:transparent; border:none;
+  padding:4px; margin:-4px;
+  cursor:pointer; -webkit-tap-highlight-color:transparent;
+  display:flex; align-items:center; justify-content:center;
+  color:rgba(255,255,255,0.42);
+  transition:color 0.15s, transform 0.2s;
+  flex-shrink:0;
+}
+.status-gear:hover { color:rgba(255,255,255,0.9); transform:rotate(45deg); }
+.status-gear.on    { color:var(--accent); }
+.status-gear svg { display:block; }
+
+/* ── FLOATING ICON BUTTON (U(1) and friends) ──── */
+.floating-icon {
+  width:38px; height:38px;
+  background:var(--panel-bg);
+  backdrop-filter:blur(20px) saturate(160%);
+  -webkit-backdrop-filter:blur(20px) saturate(160%);
+  border:1px solid var(--panel-border); border-radius:50%;
+  cursor:pointer; -webkit-tap-highlight-color:transparent;
+  display:flex; align-items:center; justify-content:center;
+  padding:0;
+  color:rgba(255,255,255,0.55);
+  box-shadow:0 4px 16px rgba(0,0,0,0.35);
+  transition:color 0.18s, transform 0.14s, background 0.18s, border-color 0.18s, box-shadow 0.18s;
+}
+.floating-icon:hover  { color:rgba(255,255,255,0.95); transform:scale(1.06); }
+.floating-icon:active { transform:scale(0.94); }
+.floating-icon svg { display:block; }
+#u1-btn.on {
+  background:rgba(110,23,38,0.82);
+  color:#f5d4d8;
+  border-color:rgba(180,50,70,0.6);
+  box-shadow:0 4px 16px rgba(110,23,38,0.45);
+}
+
+/* Desktop: params panel header is grab-cursor draggable */
+@media (min-width: 721px) {
+  #ph-params { cursor: grab; }
+  #ph-params:active { cursor: grabbing; }
+}
+
+/* ── BUSY INDICATOR ─────────────────────────────── */
+#busy {
+  position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); z-index:30;
+  font-size:11px; letter-spacing:0.18em; color:rgba(147,197,253,0.85);
+  text-transform:uppercase; pointer-events:none;
+  opacity:0; transition:opacity 0.15s;
+}
+#busy.on { opacity:1; }
+
+/* ── MISC ───────────────────────────────────────── */
+.formula {
+  color:var(--text-dim); font-size:11px; line-height:1.55; margin-bottom:11px;
+  padding-bottom:9px; border-bottom:1px solid var(--hairline);
+  font-family:"KaTeX_Math","STIX Two Math",Georgia,serif; font-style:italic;
+}
+.range-pair { display:flex; gap:10px; }
+.range-pair > div { flex:1; min-width:0; }
+.range-pair .lname { font-size:13px; }
+.section-cap {
+  font-size:9px; letter-spacing:0.1em; text-transform:uppercase;
+  color:var(--text-faint);
+}
+
+/* ── PHONE BREAKPOINT ───────────────────────────── */
+@media (max-width: 720px) {
+  /* ── MOBILE LAYOUT ──
+     params panel becomes a bottom-center floating sheet, opened from a
+     top-left menu button. The left-stack wrapper renders no box of its own
+     on mobile but its child (#params-panel) is still in the DOM and gets
+     positioned by the rules below. */
+  #left-stack { display: contents; }
+  #menu-btn   { display: flex; }
+  #right-stack { width:auto; max-width:calc(50vw - 16px); }
+
+  #params-panel {
+    position:fixed !important;
+    bottom: calc(60px + max(12px, env(safe-area-inset-bottom, 12px)));
+    left: 50%;
+    transform: translate(-50%, calc(100% + 80px));   /* hidden below viewport */
+    transition: transform 0.32s cubic-bezier(.4,0,.2,1);
+    width:auto; min-width:300px; max-width:calc(100vw - 24px);
+    z-index:24;
+  }
+  #params-panel.m-open {
+    transform: translateX(-50%);                     /* slid up into view */
+  }
+  /* On mobile the menu-btn drives open/close — header is unused */
+  #params-panel .panel-hdr { display:none; }
+  /* Force carousel content trimming regardless of .mini class */
+  #pb-params .formula { display:none; }
+  #pb-params .mrow:not(.active) { display:none; }
+  #pb-params .mini-dots { display:flex; }
+  #pb-params .panel-inner { padding:9px 13px 10px; }
+
+  .panel-inner{ padding:10px 12px; }
+  .formula    { font-size:10.5px; }
+  .btn        { padding:10px 4px; font-size:8.5px; }
+  .lname      { font-size:13.5px; }
+  .lval       { font-size:11.5px; min-width:62px; }
+  .cmap-chip  { flex:1 1 calc(33.333% - 4px); }   /* 3 per row on narrow */
+  .hdr-ctls   { gap:10px; }
+  #status     { font-size:9px; padding:6px 11px; max-width:calc(50vw - 16px); }
+  .fine-btn   { padding:5px 11px; min-height:26px; }
+  .floating-btn { padding:9px 12px; font-size:9px; }
+  /* Layer panels: layer-bar replaces their headers */
+  .layer-bar  { display:flex; }
+  .layer-panel .panel-hdr { display:none; }
+  .layer-panel:not(.body-open) { display:none; }
+}
+
+/* ── NARROW PHONE ───────────────────────────────── */
+@media (max-width: 380px) {
+  #left-stack {
+    top:  max(8px, env(safe-area-inset-top, 8px));
+    left: max(8px, env(safe-area-inset-left, 8px));
+    width:calc(50vw - 12px); max-width:calc(50vw - 12px);
+  }
+  #right-stack {
+    top:   max(8px, env(safe-area-inset-top, 8px));
+    right: max(8px, env(safe-area-inset-right, 8px));
+    width:calc(50vw - 12px); max-width:calc(50vw - 12px);
+  }
+  #status {
+    bottom:max(8px, env(safe-area-inset-bottom, 8px));
+    left:  max(8px, env(safe-area-inset-left, 8px));
+    right: max(8px, env(safe-area-inset-right, 8px));
+    width:auto; max-width:calc(100vw - 16px);
+  }
+  .formula { line-height:1.45; }
+  .range-pair { gap:8px; }
+}
+
+/* ── LANDSCAPE PHONE (short height) ─────────────── */
+@media (max-height: 480px) {
+  #left-stack, #right-stack { max-height:calc(100dvh - 56px); top:8px; gap:5px; }
+  #status     { bottom:8px; padding:5px 10px; font-size:8.5px; }
+  .panel-hdr  { padding:7px 11px; min-height:32px; }
+  .panel-inner{ padding:9px 12px; }
+  .row        { margin-bottom:10px; }
+}
+</style>
+</head>
+<body>
+
+<canvas id="canvas"></canvas>
+<div id="busy">computing</div>
+
+<button id="menu-btn" class="m-circ" onclick="mParamsToggle()" data-tip="Parameters">
+  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+    <line x1="3" y1="6"  x2="20" y2="6"/>
+    <circle cx="13" cy="6"  r="2.4" fill="currentColor" stroke="none"/>
+    <line x1="3" y1="12" x2="20" y2="12"/>
+    <circle cx="8"  cy="12" r="2.4" fill="currentColor" stroke="none"/>
+    <line x1="3" y1="18" x2="20" y2="18"/>
+    <circle cx="16" cy="18" r="2.4" fill="currentColor" stroke="none"/>
+  </svg>
+</button>
+
+<div id="left-stack">
+
+  <!-- ═══ PARAMETERS PANEL ═══ -->
+  <div class="panel" id="params-panel">
+    <div class="panel-hdr open" id="ph-params">
+      <span class="hdr-title">ζ · β-isocline · params</span>
+      <span class="hdr-ctls">
+        <span class="chevron open" id="ch-params">&#9658;</span>
+      </span>
+    </div>
+    <div class="panel-body open" id="pb-params"><div class="panel-inner">
+
+      <div class="formula">
+        ζ<sub>N</sub>(α + iβ) = Σ<sub>n=1..N</sub> n<sup>−α</sup> e<sup>i β ln n</sup>
+        &nbsp;·&nbsp; N = ⌊β/π⌋
+      </div>
+
+      <div class="row mrow active" data-idx="0">
+        <div class="lbl">
+          <span class="lname">β</span>
+          <span class="beta-rt">
+            <span class="lval" id="v-beta" onclick="editVal('beta')">1234.000</span>
+            <button class="fine-btn" id="fine-btn" onclick="toggleFine()">FINE</button>
+          </span>
+        </div>
+        <input type="range" id="sl-beta" min="1" max="10000" step="0.5" value="1234">
+        <div class="fine-sub" id="fine-sub">
+          <div class="row">
+            <div class="lbl"><span class="lname">Δβ</span><span class="lval" id="v-fine-delta">+0.000</span></div>
+            <input type="range" id="sl-fine-delta" min="-1" max="1" step="0.001" value="0">
+          </div>
+          <div class="row">
+            <div class="lbl"><span class="lname">σ</span><span class="lval" id="v-sigma">3.00</span></div>
+            <input type="range" id="sl-sigma" min="-3" max="2" step="0.05" value="0.4771212547196624">
+          </div>
+        </div>
+      </div>
+
+      <div class="row range-pair mrow" data-idx="1">
+        <div>
+          <div class="lbl"><span class="lname">α₀</span><span class="lval" id="v-alpha-lo" onclick="editVal('alphaLo')"> 0.200</span></div>
+          <input type="range" id="sl-alpha-lo" min="-3" max="6.95" step="0.01" value="0.2">
+        </div>
+        <div>
+          <div class="lbl"><span class="lname">α₁</span><span class="lval" id="v-alpha-hi" onclick="editVal('alphaHi')">2.000</span></div>
+          <input type="range" id="sl-alpha-hi" min="-2.95" max="7" step="0.01" value="2">
+        </div>
+      </div>
+
+      <div class="mini-dots" id="mini-dots">
+        <span class="m-dot on" data-idx="0" title="β" onclick="showMiniParam(0)"></span>
+        <span class="m-dot"     data-idx="1" title="α range" onclick="showMiniParam(1)"></span>
+      </div>
+    </div></div>
+  </div>
+
+</div>
+
+<div id="right-stack">
+
+  <!-- ═══ LAYER BAR (compact-mode only) ═══ -->
+  <div class="layer-bar" id="layer-bar">
+    <button class="layer-icon on" id="icon-traj" onclick="toggleViz('traj', event)" data-tip="Trajectories — α-walks through time">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14 12.5 a2 2 0 1 1 -2 -2 a4 4 0 1 0 4 4 a6 6 0 1 1 -6 -6"/>
+      </svg>
+    </button>
+    <button class="layer-icon on" id="icon-iso" onclick="toggleViz('iso', event)" data-tip="Isoclines — snapshots across α at each τ">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 7  q3 -3 6 0 t6 0 t6 0"/>
+        <path d="M3 12 q3 -3 6 0 t6 0 t6 0"/>
+        <path d="M3 17 q3 -3 6 0 t6 0 t6 0"/>
+      </svg>
+    </button>
+    <button class="layer-arrow" id="layer-arrow" onclick="toggleLayerPanels()" data-tip="Show settings for active layers">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+        <path d="M5 8 L19 8 L12 18 Z"/>
+      </svg>
+    </button>
+  </div>
+
+  <!-- ═══ TRAJECTORIES PANEL ═══ -->
+  <div class="panel layer-panel" id="traj-panel">
+    <div class="panel-hdr" id="ph-traj" onclick="togglePanel('traj')">
+      <span class="hdr-title">
+        <span class="layer-dot" id="dot-traj"></span>Trajectories
+      </span>
+      <span class="hdr-ctls">
+        <span class="viz-tog on" id="tog-traj" onclick="toggleViz('traj', event)"></span>
+        <span class="chevron" id="ch-traj">&#9658;</span>
+      </span>
+    </div>
+    <div class="panel-body" id="pb-traj"><div class="panel-inner">
+      <div class="row">
+        <div class="lbl"><span class="lname">N<span class="sub">α &nbsp;walks</span></span><span class="lval" id="v-nwalks" onclick="editVal('nwalks')">100</span></div>
+        <input type="range" id="sl-nwalks" min="50" max="1000" step="10" value="100">
+      </div>
+      <div class="row">
+        <div class="lbl"><span class="lname">opacity</span><span class="lval" id="v-trans-traj">0.40</span></div>
+        <input type="range" id="sl-trans-traj" min="0.01" max="1" step="0.01" value="0.4">
+      </div>
+      <div class="row">
+        <div class="lbl" style="margin-bottom:0"><span class="section-cap">colormap (along time)</span></div>
+        <div class="cmap-row" id="cmap-row-traj"></div>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- ═══ ISOCLINES PANEL ═══ -->
+  <div class="panel layer-panel" id="iso-panel">
+    <div class="panel-hdr" id="ph-iso" onclick="togglePanel('iso')">
+      <span class="hdr-title">
+        <span class="layer-dot" id="dot-iso"></span>Isoclines
+      </span>
+      <span class="hdr-ctls">
+        <span class="viz-tog on" id="tog-iso" onclick="toggleViz('iso', event)"></span>
+        <span class="chevron" id="ch-iso">&#9658;</span>
+      </span>
+    </div>
+    <div class="panel-body" id="pb-iso"><div class="panel-inner">
+      <div class="row">
+        <div class="lbl"><span class="lname">opacity</span><span class="lval" id="v-trans-iso">0.80</span></div>
+        <input type="range" id="sl-trans-iso" min="0.01" max="1" step="0.01" value="0.8">
+      </div>
+      <div class="row">
+        <div class="lbl" style="margin-bottom:0"><span class="section-cap">colormap (one per τ)</span></div>
+        <div class="cmap-row" id="cmap-row-iso"></div>
+      </div>
+    </div></div>
+  </div>
+
+</div>
+
+<div class="panel" id="status">
+  <div class="status-text">
+    <span class="k">N</span> = <span class="v" id="s-N">—</span>
+    &nbsp;·&nbsp; <span class="k">segs</span> = <span class="v" id="s-verts">—</span>
+    &nbsp;·&nbsp; <span class="k">cpt</span> <span class="v" id="s-tc">—</span>ms
+    &nbsp;·&nbsp; <span class="k">drw</span> <span class="v" id="s-td">—</span>ms
+  </div>
+  <button class="status-gear" id="settings-btn" onclick="toggleSettings()" data-tip="Display settings">
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+      <circle cx="12" cy="12" r="4"/>
+      <path d="M12 2v2 M12 20v2 M4.93 4.93l1.41 1.41 M17.66 17.66l1.41 1.41 M2 12h2 M20 12h2 M6.34 17.66l-1.41 1.41 M19.07 4.93l-1.41 1.41"/>
+    </svg>
+  </button>
+</div>
+
+<div class="panel" id="settings-popover">
+  <div class="row" style="margin-bottom:0">
+    <div class="lbl">
+      <span class="lname">background</span>
+      <span class="lval" id="v-bg">0.024</span>
+    </div>
+    <input type="range" id="sl-bg" min="0" max="1" step="0.005" value="0.024">
+  </div>
+</div>
+
+<div id="action-bar">
+  <button class="floating-btn" onclick="randomBeta()">Random β</button>
+  <button class="floating-btn" onclick="fitView()">Fit</button>
+  <button class="floating-icon" id="u1-btn" onclick="toggleU1()" data-tip="U(1) — unit and half-unit reference circles">
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5">
+      <circle cx="12" cy="12" r="9"/>
+      <circle cx="12" cy="12" r="4.5"/>
+    </svg>
+  </button>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════
+   COLORMAPS
+═══════════════════════════════════════════════════ */
+function lerpS(t,s){
+  if(t<=s[0].t)return[s[0].r,s[0].g,s[0].b];
+  if(t>=s[s.length-1].t)return[s[s.length-1].r,s[s.length-1].g,s[s.length-1].b];
+  for(let i=0;i<s.length-1;i++){
+    if(t<=s[i+1].t){
+      const u=(t-s[i].t)/(s[i+1].t-s[i].t);
+      return[s[i].r+(s[i+1].r-s[i].r)*u,s[i].g+(s[i+1].g-s[i].g)*u,s[i].b+(s[i+1].b-s[i].b)*u];
+    }
+  }
+  return[s[s.length-1].r,s[s.length-1].g,s[s.length-1].b];
+}
+const CMAPS = {
+  parula: { name:'Parula',  fn:t=>lerpS(t,[{t:0,r:53,g:42,b:135},{t:0.2,r:15,g:92,b:221},{t:0.45,r:18,g:160,b:200},{t:0.7,r:120,g:198,b:120},{t:0.85,r:240,g:200,b:60},{t:1,r:250,g:230,b:35}]) },
+  viridis:{ name:'Viridis', fn:t=>lerpS(t,[{t:0,r:68,g:1,b:84},{t:.25,r:59,g:82,b:139},{t:.5,r:33,g:145,b:140},{t:.75,r:94,g:201,b:98},{t:1,r:253,g:231,b:37}]) },
+  turbo:  { name:'Turbo',   fn:t=>lerpS(t,[{t:0,r:48,g:18,b:59},{t:.2,r:50,g:99,b:204},{t:.4,r:66,g:204,b:173},{t:.6,r:188,g:230,b:49},{t:.8,r:249,g:156,b:29},{t:1,r:189,g:22,b:11}]) },
+  inferno:{ name:'Inferno', fn:t=>lerpS(t,[{t:0,r:0,g:0,b:4},{t:.2,r:51,g:13,b:76},{t:.4,r:132,g:32,b:107},{t:.6,r:203,g:71,b:47},{t:.8,r:245,g:163,b:5},{t:1,r:252,g:255,b:164}]) },
+  plasma: { name:'Plasma',  fn:t=>lerpS(t,[{t:0,r:13,g:8,b:135},{t:.25,r:126,g:3,b:168},{t:.5,r:204,g:71,b:120},{t:.75,r:248,g:149,b:64},{t:1,r:240,g:249,b:33}]) },
+  ocean:  { name:'Ocean',   fn:t=>lerpS(t,[{t:0,r:0,g:20,b:80},{t:.4,r:20,g:100,b:180},{t:.7,r:0,g:180,b:210},{t:1,r:180,g:240,b:255}]) },
+  bwr:    { name:'B-W-R',   fn:t=>lerpS(t,[{t:0,r:59,g:76,b:192},{t:.5,r:220,g:220,b:220},{t:1,r:180,g:4,b:38}]) },
+  magma:  { name:'Magma',   fn:t=>lerpS(t,[{t:0,r:0,g:0,b:4},{t:.25,r:54,g:14,b:80},{t:.5,r:152,g:50,b:112},{t:.75,r:231,g:131,b:109},{t:1,r:252,g:253,b:191}]) },
+};
+
+function cmapGrad(fn) {
+  // 11 stops at clean 10% increments — denser stops on narrow elements with
+  // a border + border-radius can show a sliver of the end color at the start
+  // due to subpixel rounding. 10% steps render cleanly.
+  const s = [];
+  for (let i = 0; i <= 10; i++) {
+    const t = i / 10;
+    const [r, g, b] = fn(t);
+    s.push(`rgb(${r|0},${g|0},${b|0}) ${(t*100).toFixed(0)}%`);
+  }
+  return `linear-gradient(to right, ${s.join(', ')})`;
+}
+
+/* ═══════════════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════════════ */
+const S = {
+  beta: 1234,
+  nwalks: 100,
+  alphaLo: 0.2, alphaHi: 2,
+  pd: null,                       // {xMat, yMat, nrows, nwalks, tc}
+  tx: { scale:50, cx:400, cy:400 },
+  traj: { vis:true, opacity:0.4, cmap:'bwr' },
+  iso:  { vis:true, opacity:0.8, cmap:'plasma' },
+  // fine-tune: β = betaCenter + 10^sigmaExp · fineDelta when isFine
+  isFine: false,
+  betaCenter: 1234,
+  sigmaExp: Math.log10(3),    // σ default = 3.0 (10^0.477)
+  fineDelta: 0,
+  // mini-mode carousel idx (only matters when params panel is folded)
+  miniIdx: 0,
+  // display
+  bgValue: 0.024,    // canvas background grayscale [0..1]
+  u1: false,         // render U(1) reference circles
+};
+const POPEN = { params:true, traj:false, iso:false };
+const N_MINI = 2; // β, α-pair
+
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d', { alpha:false });
+let cssW=0, cssH=0, dpr=1;
+
+function resizeCanvas() {
+  dpr = Math.max(1, window.devicePixelRatio || 1);
+  cssW = window.innerWidth; cssH = window.innerHeight;
+  canvas.width = cssW * dpr; canvas.height = cssH * dpr;
+  canvas.style.width = cssW+'px'; canvas.style.height = cssH+'px';
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+}
+window.addEventListener('resize', () => { resizeCanvas(); draw(); clampPanelToViewport(); });
+
+/* ═══════════════════════════════════════════════════
+   COMPUTE  ── vectorized over α
+   The expensive cell op is exp(-α·ln n). For β-only changes
+   (fine-tune drag) the magnitudes don't change, so we cache
+   them keyed by (nwalks, aLo, aHi) and reuse output buffers
+   to avoid GC pauses across slider events.
+═══════════════════════════════════════════════════ */
+let _magCache = null, _magKey = null, _magNrows = 0;
+let _logN = null;
+let _bufXMat = null, _bufYMat = null, _bufCx = null, _bufCy = null;
+
+function ensureLogN(N) {
+  if (_logN && _logN.length >= N) return _logN;
+  const allocN = Math.max(N, _logN ? _logN.length * 2 : 256);
+  const arr = new Float64Array(allocN);
+  for (let i = 0; i < allocN; i++) arr[i] = Math.log(i + 1);
+  _logN = arr;
+  return arr;
+}
+function ensureMag(nwalks, aLo, aHi, N) {
+  const sameKey = _magKey
+    && _magKey.nwalks === nwalks
+    && _magKey.aLo === aLo
+    && _magKey.aHi === aHi;
+  if (sameKey && _magNrows >= N) return _magCache;
+
+  const logN = ensureLogN(N);
+  const dA = nwalks > 1 ? (aHi - aLo) / (nwalks - 1) : 0;
+
+  if (sameKey && _magCache && _magNrows < N) {
+    // Same α range but β grew past a π boundary — extend, keep prior rows
+    const extended = new Float32Array(N * nwalks);
+    extended.set(_magCache.subarray(0, _magNrows * nwalks));
+    for (let i = _magNrows; i < N; i++) {
+      const lnn = logN[i];
+      const off = i * nwalks;
+      for (let j = 0; j < nwalks; j++) {
+        extended[off + j] = Math.exp(-(aLo + dA * j) * lnn);
+      }
+    }
+    _magCache = extended; _magNrows = N;
+    return extended;
+  }
+
+  // α range or nwalks changed — rebuild from scratch
+  const mag = new Float32Array(N * nwalks);
+  for (let j = 0; j < nwalks; j++) mag[j] = 1;            // n=1 → all ones
+  for (let i = 1; i < N; i++) {
+    const lnn = logN[i];
+    const off = i * nwalks;
+    for (let j = 0; j < nwalks; j++) {
+      mag[off + j] = Math.exp(-(aLo + dA * j) * lnn);
+    }
+  }
+  _magCache = mag;
+  _magKey = { nwalks, aLo, aHi };
+  _magNrows = N;
+  return mag;
+}
+function ensureBufs(N, nwalks) {
+  const total = N * nwalks;
+  if (!_bufXMat || _bufXMat.length < total) {
+    const sz = Math.max(total, _bufXMat ? _bufXMat.length * 2 : total);
+    _bufXMat = new Float32Array(sz);
+    _bufYMat = new Float32Array(sz);
+  }
+  if (!_bufCx || _bufCx.length < nwalks) {
+    _bufCx = new Float64Array(nwalks);
+    _bufCy = new Float64Array(nwalks);
+  }
+}
+
+function compute(beta, nwalks, aLo, aHi) {
+  const t0 = performance.now();
+  const N = Math.max(2, Math.floor(beta / Math.PI) + 1);
+  const mag  = ensureMag(nwalks, aLo, aHi, N);
+  const logN = _logN;
+  ensureBufs(N, nwalks);
+  const xMat = _bufXMat, yMat = _bufYMat;
+  const cx = _bufCx, cy = _bufCy;
+
+  // n=1: every walk lands at (1, 0)
+  for (let j = 0; j < nwalks; j++) { cx[j] = 1; cy[j] = 0; xMat[j] = 1; yMat[j] = 0; }
+
+  for (let i = 1; i < N; i++) {
+    const lnn = logN[i];
+    const cosT = Math.cos(beta * lnn);
+    const sinT = Math.sin(beta * lnn);
+    const off = i * nwalks;
+    for (let j = 0; j < nwalks; j++) {
+      const r = mag[off + j];           // cached magnitude
+      cx[j] += r * cosT;
+      cy[j] -= r * sinT;
+      xMat[off + j] = cx[j];
+      yMat[off + j] = cy[j];
+    }
+  }
+  return { xMat, yMat, nrows: N, nwalks, tc: performance.now() - t0 };
+}
+
+/* ═══════════════════════════════════════════════════
+   AUTO-FIT
+═══════════════════════════════════════════════════ */
+function autoFit(pd) {
+  if (!pd) return;
+  const { xMat, yMat, nrows, nwalks } = pd;
+  let x0 = +Infinity, x1 = -Infinity, y0 = +Infinity, y1 = -Infinity;
+  const start = nwalks; // skip degenerate first row
+  const total = nrows * nwalks;
+  for (let k = start; k < total; k++) {
+    const x = xMat[k], y = yMat[k];
+    if (x < x0) x0 = x;
+    if (x > x1) x1 = x;
+    if (y < y0) y0 = y;
+    if (y > y1) y1 = y;
+  }
+  if (!isFinite(x0)) return;
+  const xR = (x1 - x0) || 2, yR = (y1 - y0) || 2;
+  const xPad = 0.08 * xR, yPad = 0.08 * yR;
+  const xl = [x0 - xPad, x1 + xPad], yl = [y0 - yPad, y1 + yPad];
+  const ca = cssW / cssH, pa = (xl[1]-xl[0]) / (yl[1]-yl[0]);
+  if (ca > pa) { const c = (xl[0]+xl[1])/2, nr = (yl[1]-yl[0])*ca; xl[0]=c-nr/2; xl[1]=c+nr/2; }
+  else        { const c = (yl[0]+yl[1])/2, nr = (xl[1]-xl[0])/ca; yl[0]=c-nr/2; yl[1]=c+nr/2; }
+  const sc = cssW / (xl[1] - xl[0]);
+  S.tx = { scale: sc, cx: -xl[0]*sc, cy: yl[1]*sc };
+}
+
+/* ═══════════════════════════════════════════════════
+   DRAW  ── two layers, each batched into N_BINS via Path2D
+═══════════════════════════════════════════════════ */
+const N_BINS = 64;
+
+function drawGrid(W, H) {
+  const { scale:sc, cx:tcx, cy:tcy } = S.tx;
+  const xv = [-tcx/sc, (W-tcx)/sc], yv = [-(H-tcy)/sc, tcy/sc];
+  const vis = Math.min(Math.abs(xv[1]-xv[0]), Math.abs(yv[1]-yv[0]));
+  let st = vis / 12;
+  const e = Math.floor(Math.log10(st)), f = st / Math.pow(10,e);
+  st = f<1.5 ? Math.pow(10,e) : f<3.5 ? 2*Math.pow(10,e) : f<7.5 ? 5*Math.pow(10,e) : 10*Math.pow(10,e);
+  // Pick gridline color based on bg lightness so contrast stays sane
+  const dark = S.bgValue < 0.5;
+  const gridRGB = dark ? '255,255,255' : '0,0,0';
+  const gridA = dark ? 0.05 : 0.08;
+  const axisA = dark ? 0.18 : 0.26;
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = `rgba(${gridRGB},${gridA})`;
+  ctx.beginPath();
+  for (let x = Math.floor(xv[0]/st)*st; x <= xv[1]+st; x += st) {
+    const sx = x*sc + tcx; ctx.moveTo(sx, 0); ctx.lineTo(sx, H);
+  }
+  for (let y = Math.floor(yv[0]/st)*st; y <= yv[1]+st; y += st) {
+    const sy = -y*sc + tcy; ctx.moveTo(0, sy); ctx.lineTo(W, sy);
+  }
+  ctx.stroke();
+  ctx.strokeStyle = `rgba(${gridRGB},${axisA})`; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(0, tcy); ctx.lineTo(W, tcy);
+  ctx.moveTo(tcx, 0); ctx.lineTo(tcx, H); ctx.stroke();
+}
+
+// Trajectories: each α-walk is one polyline through time.
+// Color along the polyline varies with TIME (matches MATLAB FaceVertexCData=clr).
+function drawTrajectories(W, H) {
+  const pd = S.pd; if (!pd) return 0;
+  const { xMat, yMat, nrows, nwalks } = pd;
+  if (nrows < 2) return 0;
+  const { scale:sc, cx:tcx, cy:tcy } = S.tx;
+  const cmap = CMAPS[S.traj.cmap].fn;
+
+  const binOf = new Uint8Array(nrows);
+  for (let i = 0; i < nrows; i++) {
+    const t = nrows > 1 ? i / (nrows - 1) : 0;
+    binOf[i] = Math.min(N_BINS - 1, (t * N_BINS) | 0);
+  }
+  const binColor = [];
+  for (let k = 0; k < N_BINS; k++) {
+    const t = (k + 0.5) / N_BINS;
+    binColor.push(cmap(t));
+  }
+  const paths = [];
+  for (let k = 0; k < N_BINS; k++) paths.push(new Path2D());
+
+  let segs = 0;
+  for (let j = 0; j < nwalks; j++) {
+    let curBin = -1;
+    let gapped = true;
+    let pSx = xMat[j] * sc + tcx;
+    let pSy = -yMat[j] * sc + tcy;
+    let pIn = !(pSx < -2 || pSx > W+2 || pSy < -2 || pSy > H+2);
+    for (let i = 1; i < nrows; i++) {
+      const k = i * nwalks + j;
+      const sx = xMat[k] * sc + tcx;
+      const sy = -yMat[k] * sc + tcy;
+      const inside = !(sx < -2 || sx > W+2 || sy < -2 || sy > H+2);
+      if (!inside && !pIn) {
+        gapped = true;
+      } else {
+        const bin = binOf[i-1];
+        if (bin !== curBin || gapped) {
+          paths[bin].moveTo(pSx, pSy);
+          curBin = bin; gapped = false;
+        }
+        paths[bin].lineTo(sx, sy);
+        segs++;
+      }
+      pSx = sx; pSy = sy; pIn = inside;
+    }
+  }
+
+  ctx.lineWidth = 1; ctx.lineCap = 'butt'; ctx.lineJoin = 'round';
+  const al = S.traj.opacity;
+  for (let k = 0; k < N_BINS; k++) {
+    const [r, g, b] = binColor[k];
+    ctx.strokeStyle = `rgba(${r|0},${g|0},${b|0},${al})`;
+    ctx.stroke(paths[k]);
+  }
+  return segs;
+}
+
+// Isoclines: each row is one polyline across α. Single color per isocline
+// keyed by row's time index — matches MATLAB FaceVertexCData=clr(i,:).
+function drawIsoclines(W, H) {
+  const pd = S.pd; if (!pd) return 0;
+  const { xMat, yMat, nrows, nwalks } = pd;
+  if (nrows < 2 || nwalks < 2) return 0;
+  const { scale:sc, cx:tcx, cy:tcy } = S.tx;
+  const cmap = CMAPS[S.iso.cmap].fn;
+
+  const binOfRow = new Uint8Array(nrows);
+  for (let i = 0; i < nrows; i++) {
+    const t = nrows > 1 ? i / (nrows - 1) : 0;
+    binOfRow[i] = Math.min(N_BINS - 1, (t * N_BINS) | 0);
+  }
+  const binColor = [];
+  for (let k = 0; k < N_BINS; k++) {
+    const t = (k + 0.5) / N_BINS;
+    binColor.push(cmap(t));
+  }
+  const paths = [];
+  for (let k = 0; k < N_BINS; k++) paths.push(new Path2D());
+
+  let segs = 0;
+  for (let i = 1; i < nrows; i++) {
+    const off = i * nwalks;
+    const path = paths[binOfRow[i]];
+    let pSx = xMat[off] * sc + tcx;
+    let pSy = -yMat[off] * sc + tcy;
+    let pIn = !(pSx < -2 || pSx > W+2 || pSy < -2 || pSy > H+2);
+    let gapped = true;
+    for (let j = 1; j < nwalks; j++) {
+      const sx = xMat[off + j] * sc + tcx;
+      const sy = -yMat[off + j] * sc + tcy;
+      const inside = !(sx < -2 || sx > W+2 || sy < -2 || sy > H+2);
+      if (!inside && !pIn) {
+        gapped = true;
+      } else {
+        if (gapped) { path.moveTo(pSx, pSy); gapped = false; }
+        path.lineTo(sx, sy);
+        segs++;
+      }
+      pSx = sx; pSy = sy; pIn = inside;
+    }
+  }
+
+  ctx.lineWidth = 1; ctx.lineCap = 'butt'; ctx.lineJoin = 'round';
+  const al = S.iso.opacity;
+  for (let k = 0; k < N_BINS; k++) {
+    const [r, g, b] = binColor[k];
+    ctx.strokeStyle = `rgba(${r|0},${g|0},${b|0},${al})`;
+    ctx.stroke(paths[k]);
+  }
+  return segs;
+}
+
+// U(1): two circles at the data origin (radius 1 and 1/2), drawn on top of
+// the data layers as a maroon overlay reference.
+function drawU1(W, H) {
+  if (!S.u1) return;
+  const { scale, cx, cy } = S.tx;
+  ctx.lineWidth = 1.4;
+  ctx.strokeStyle = 'rgba(220, 80, 100, 0.65)';
+  ctx.beginPath();
+  ctx.arc(cx, cy, scale, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(cx, cy, scale * 0.5, 0, Math.PI * 2);
+  ctx.stroke();
+}
+
+function draw() {
+  const t0 = performance.now();
+  const v = Math.round(S.bgValue * 255);
+  ctx.fillStyle = `rgb(${v},${v},${v})`;
+  ctx.fillRect(0, 0, cssW, cssH);
+  drawGrid(cssW, cssH);
+  let segs = 0;
+  // Trajectories under (lower opacity), isoclines on top — matches MATLAB stacking
+  if (S.traj.vis) segs += drawTrajectories(cssW, cssH);
+  if (S.iso.vis)  segs += drawIsoclines(cssW, cssH);
+  if (S.u1)       drawU1(cssW, cssH);
+  const td = performance.now() - t0;
+  document.getElementById('s-td').textContent = td.toFixed(0);
+  document.getElementById('s-verts').textContent = formatBig(segs);
+  if (S.pd) document.getElementById('s-tc').textContent = S.pd.tc.toFixed(0);
+}
+
+function formatBig(n) {
+  if (n >= 1e6) return (n/1e6).toFixed(2)+'M';
+  if (n >= 1e3) return (n/1e3).toFixed(1)+'K';
+  return ''+n;
+}
+
+/* ═══════════════════════════════════════════════════
+   SCHEDULING + BUSY
+═══════════════════════════════════════════════════ */
+function showBusy(on) { document.getElementById('busy').classList.toggle('on', on); }
+
+// Single-rAF coalesce: many input events collapse into one compute per frame.
+// _pendingRefit is sticky — if any caller in the current batch wanted a refit,
+// it happens on the next compute.
+let _rafScheduled = false, _pendingRefit = false;
+function recomputeAndDraw(refit) {
+  if (refit) _pendingRefit = true;
+  if (_rafScheduled) return;
+  _rafScheduled = true;
+  requestAnimationFrame(() => {
+    _rafScheduled = false;
+    const r = _pendingRefit; _pendingRefit = false;
+    S.pd = compute(S.beta, S.nwalks, S.alphaLo, S.alphaHi);
+    if (r) autoFit(S.pd);
+    document.getElementById('s-N').textContent = S.pd.nrows;
+    document.getElementById('s-tc').textContent = S.pd.tc.toFixed(0);
+    draw();
+  });
+}
+function redraw() {
+  if (_rafScheduled) return;
+  _rafScheduled = true;
+  requestAnimationFrame(() => { _rafScheduled = false; draw(); });
+}
+
+/* ═══════════════════════════════════════════════════
+   PANEL TOGGLE / VISIBILITY
+═══════════════════════════════════════════════════ */
+function togglePanel(name) {
+  POPEN[name] = !POPEN[name];
+  const ph = document.getElementById('ph-'+name);
+  const ch = document.getElementById('ch-'+name);
+  const pb = document.getElementById('pb-'+name);
+  ph.classList.toggle('open', POPEN[name]);
+  ch.classList.toggle('open', POPEN[name]);
+  if (name === 'params') {
+    // params never fully collapses — it goes "mini" instead
+    pb.classList.toggle('mini', !POPEN[name]);
+    if (!POPEN[name]) showMiniParam(S.miniIdx);
+    // After unfold, the panel grew taller; clamp so it doesn't clip viewport
+    if (POPEN[name]) requestAnimationFrame(clampPanelToViewport);
+  } else {
+    pb.classList.toggle('open', POPEN[name]);
+    // body-open mirrors panel-body.open for compact-mode CSS rules that
+    // fully hide the layer panel container when closed
+    document.getElementById(name+'-panel').classList.toggle('body-open', POPEN[name]);
+    syncArrowState();
+  }
+}
+
+function syncArrowState() {
+  const arrow = document.getElementById('layer-arrow');
+  if (arrow) arrow.classList.toggle('open', POPEN.traj || POPEN.iso);
+}
+
+function toggleLayerPanels() {
+  const anyOpen = POPEN.traj || POPEN.iso;
+  if (anyOpen) {
+    if (POPEN.traj) togglePanel('traj');
+    if (POPEN.iso)  togglePanel('iso');
+  } else {
+    // open panels for ON layers only — matches "depending on what is on vs off"
+    if (S.traj.vis) togglePanel('traj');
+    if (S.iso.vis)  togglePanel('iso');
+  }
+}
+
+// Mobile: top-left menu-btn slides params panel up from bottom-center.
+// State is independent of POPEN.params (which controls desktop mini/expanded).
+let mParamsOpen = false;
+function mParamsToggle() {
+  mParamsOpen = !mParamsOpen;
+  document.getElementById('params-panel').classList.toggle('m-open', mParamsOpen);
+  document.getElementById('menu-btn').classList.toggle('m-active', mParamsOpen);
+}
+
+// Helper used by the touch/wheel carousel handlers below — true when the
+// carousel is the visible interaction mode (desktop mini or any mobile layout)
+function inCarouselMode() {
+  return document.getElementById('pb-params').classList.contains('mini')
+      || window.matchMedia('(max-width: 720px)').matches;
+}
+
+/* ── Settings popover, U(1), bg slider ──────────── */
+function toggleSettings() {
+  const p = document.getElementById('settings-popover');
+  const btn = document.getElementById('settings-btn');
+  const shown = p.classList.toggle('show');
+  btn.classList.toggle('on', shown);
+}
+function toggleU1() {
+  S.u1 = !S.u1;
+  document.getElementById('u1-btn').classList.toggle('on', S.u1);
+  redraw();
+}
+document.getElementById('sl-bg').addEventListener('input', e => {
+  S.bgValue = parseFloat(e.target.value);
+  document.getElementById('v-bg').textContent = S.bgValue.toFixed(3);
+  redraw();
+});
+
+/* ── Draggable params panel (desktop only) ──────── */
+// Pointer events on the params header: drag to move, click to toggle.
+// After unfolding, clampPanelToViewport ensures the now-taller panel fits.
+function clampPanelToViewport() {
+  if (window.matchMedia('(max-width: 720px)').matches) return;
+  const stack = document.getElementById('left-stack');
+  const r = stack.getBoundingClientRect();
+  const margin = 8;
+  let top = r.top, left = r.left;
+  if (r.bottom > window.innerHeight - margin) {
+    top = Math.max(margin, window.innerHeight - r.height - margin);
+  }
+  if (r.right > window.innerWidth - margin) {
+    left = Math.max(margin, window.innerWidth - r.width - margin);
+  }
+  if (top  !== r.top)  stack.style.top  = top  + 'px';
+  if (left !== r.left) stack.style.left = left + 'px';
+}
+
+(function() {
+  const stack = document.getElementById('left-stack');
+  const hdr = document.getElementById('ph-params');
+  if (!stack || !hdr) return;
+  let pdState = null;
+  let didDrag = false;
+
+  hdr.addEventListener('pointerdown', e => {
+    if (window.matchMedia('(max-width: 720px)').matches) return;
+    if (e.target.closest('button, input, .viz-tog, .fine-btn')) return;
+    hdr.setPointerCapture(e.pointerId);
+    const r = stack.getBoundingClientRect();
+    pdState = { pid: e.pointerId, mx: e.clientX, my: e.clientY,
+                left: r.left, top: r.top };
+    didDrag = false;
+  });
+  hdr.addEventListener('pointermove', e => {
+    if (!pdState || e.pointerId !== pdState.pid) return;
+    const dx = e.clientX - pdState.mx;
+    const dy = e.clientY - pdState.my;
+    if (Math.abs(dx) + Math.abs(dy) > 4) didDrag = true;
+    if (didDrag) {
+      const r = stack.getBoundingClientRect();
+      const margin = 8;
+      let nl = pdState.left + dx, nt = pdState.top + dy;
+      nl = Math.max(margin, Math.min(nl, window.innerWidth  - r.width  - margin));
+      nt = Math.max(margin, Math.min(nt, window.innerHeight - r.height - margin));
+      stack.style.left = nl + 'px';
+      stack.style.top  = nt + 'px';
+    }
+  });
+  const onUp = e => {
+    if (!pdState || e.pointerId !== pdState.pid) return;
+    try { hdr.releasePointerCapture(e.pointerId); } catch (_) {}
+    pdState = null;
+  };
+  hdr.addEventListener('pointerup',     onUp);
+  hdr.addEventListener('pointercancel', onUp);
+
+  // Click handler: fold the panel only if it wasn't a drag
+  hdr.addEventListener('click', () => {
+    if (didDrag) { didDrag = false; return; }
+    togglePanel('params');
+  });
+})();
+
+function showMiniParam(idx) {
+  S.miniIdx = ((idx % N_MINI) + N_MINI) % N_MINI;
+  document.querySelectorAll('#pb-params .mrow').forEach(el => {
+    el.classList.toggle('active', parseInt(el.dataset.idx) === S.miniIdx);
+  });
+  document.querySelectorAll('#mini-dots .m-dot').forEach(d => {
+    d.classList.toggle('on', parseInt(d.dataset.idx) === S.miniIdx);
+  });
+}
+
+// Wheel-cycle params when the panel is in mini mode
+let wheelCD = false;
+document.getElementById('params-panel').addEventListener('wheel', e => {
+  if (!inCarouselMode()) return; // expanded → let scroll pass
+  e.preventDefault();
+  if (wheelCD) return;
+  wheelCD = true;
+  setTimeout(() => { wheelCD = false; }, 220);
+  showMiniParam(S.miniIdx + (e.deltaY > 0 ? 1 : -1));
+}, { passive: false });
+
+/* ── Mobile carousel: longpress (160ms) + vertical drag cycles params,
+   swipe-down on header collapses to mini. Ported from the template. ── */
+(function(){
+  const pb  = document.getElementById('pb-params');
+  const hdr = document.getElementById('ph-params');
+  if (!pb || !hdr) return;
+
+  // ── carousel cycling on the panel body ──
+  let sx = 0, sy = 0, lpTimer = null, lpActive = false;
+  let touchOnRange = false;
+
+  const onStart = (cx, cy) => {
+    sx = cx; sy = cy; lpActive = false;
+    lpTimer = setTimeout(() => { lpActive = true; }, 160);
+  };
+  const onMove = (e, cx, cy) => {
+    if (!lpActive) return;
+    const dy = sy - cy, dx = sx - cx;
+    if (Math.abs(dy) > 6 && Math.abs(dy) > Math.abs(dx)) {
+      e.preventDefault();
+      if (Math.abs(dy) > 28) {
+        showMiniParam(S.miniIdx + (dy > 0 ? 1 : -1));
+        sy = cy;  // re-anchor so a continuing drag keeps cycling
+      }
+    }
+  };
+  const onEnd = () => { clearTimeout(lpTimer); lpActive = false; touchOnRange = false; };
+
+  pb.addEventListener('touchstart', e => {
+    touchOnRange = !!(e.target.closest && e.target.closest('input[type=range]'));
+    if (touchOnRange) return;
+    if (!inCarouselMode()) return;
+    onStart(e.touches[0].clientX, e.touches[0].clientY);
+  }, { passive: true });
+  pb.addEventListener('touchmove', e => {
+    if (touchOnRange) return;
+    if (!inCarouselMode()) return;
+    onMove(e, e.touches[0].clientX, e.touches[0].clientY);
+  }, { passive: false });
+  pb.addEventListener('touchend',    onEnd, { passive: true });
+  pb.addEventListener('touchcancel', onEnd, { passive: true });
+
+  // ── swipe-down on header to collapse to mini (desktop fallback) ──
+  let hSY = 0, hSX = 0;
+  hdr.addEventListener('touchstart', e => {
+    hSY = e.touches[0].clientY;
+    hSX = e.touches[0].clientX;
+  }, { passive: true });
+  hdr.addEventListener('touchend', e => {
+    const dy = e.changedTouches[0].clientY - hSY;
+    const dx = e.changedTouches[0].clientX - hSX;
+    if (dy > 30 && Math.abs(dy) > Math.abs(dx) && POPEN.params) {
+      togglePanel('params');
+    }
+  }, { passive: true });
+})();
+
+function toggleViz(layer, e) {
+  if (e) e.stopPropagation();
+  S[layer].vis = !S[layer].vis;
+  document.getElementById('tog-'+layer).classList.toggle('on', S[layer].vis);
+  const icon = document.getElementById('icon-'+layer);
+  if (icon) icon.classList.toggle('on', S[layer].vis);
+  document.getElementById(layer+'-panel').classList.toggle('dim', !S[layer].vis);
+  // If at least one panel is currently open (i.e. arrow appears expanded),
+  // mirror this layer's panel-open state to its visibility — turning a layer
+  // off while panels are open closes its panel; turning on opens it.
+  if (POPEN.traj || POPEN.iso) {
+    if (S[layer].vis !== POPEN[layer]) togglePanel(layer);
+  }
+  redraw();
+}
+
+/* ═══════════════════════════════════════════════════
+   UI HOOKUP
+═══════════════════════════════════════════════════ */
+function fmtBeta(b) { return b.toFixed(3); }
+function fmtAlpha(a) { return (a >= 0 ? ' ' : '−') + Math.abs(a).toFixed(3); }
+
+function syncBetaUI()    {
+  document.getElementById('v-beta').textContent = fmtBeta(S.beta);
+  // When fine is on, the main slider thumb represents the CENTER, not the
+  // effective β; the displayed v-beta is always the effective β.
+  document.getElementById('sl-beta').value = S.isFine ? S.betaCenter : S.beta;
+}
+function fmtSigma(s) {
+  if (s >= 100) return s.toFixed(0);
+  if (s >= 10)  return s.toFixed(1);
+  if (s >= 1)   return s.toFixed(2);
+  if (s >= 0.1) return s.toFixed(3);
+  if (s >= 0.01) return s.toFixed(4);
+  return s.toExponential(2);
+}
+function syncFineUI() {
+  document.getElementById('sl-fine-delta').value = S.fineDelta;
+  document.getElementById('sl-sigma').value = S.sigmaExp;
+  document.getElementById('v-fine-delta').textContent =
+    (S.fineDelta >= 0 ? '+' : '−') + Math.abs(S.fineDelta).toFixed(3);
+  document.getElementById('v-sigma').textContent = fmtSigma(Math.pow(10, S.sigmaExp));
+}
+function toggleFine() {
+  S.isFine = !S.isFine;
+  // Recenter on entry/exit so the displayed β is preserved with delta=0
+  S.betaCenter = S.beta;
+  S.fineDelta  = 0;
+  document.getElementById('fine-btn').classList.toggle('on', S.isFine);
+  document.getElementById('fine-sub').classList.toggle('open', S.isFine);
+  syncFineUI();
+  syncBetaUI();
+  // Opening fine grows the panel — clamp after the max-height transition
+  if (S.isFine) setTimeout(clampPanelToViewport, 320);
+  // β didn't actually change → no recompute needed
+}
+function syncAlphaUI()   {
+  document.getElementById('v-alpha-lo').textContent = fmtAlpha(S.alphaLo);
+  document.getElementById('v-alpha-hi').textContent = fmtAlpha(S.alphaHi);
+  document.getElementById('sl-alpha-lo').value = S.alphaLo;
+  document.getElementById('sl-alpha-hi').value = S.alphaHi;
+}
+function syncNwalksUI()  { document.getElementById('v-nwalks').textContent = S.nwalks; document.getElementById('sl-nwalks').value = S.nwalks; }
+function syncTransUI()   {
+  document.getElementById('v-trans-traj').textContent = S.traj.opacity.toFixed(2);
+  document.getElementById('sl-trans-traj').value = S.traj.opacity;
+  document.getElementById('v-trans-iso').textContent = S.iso.opacity.toFixed(2);
+  document.getElementById('sl-trans-iso').value = S.iso.opacity;
+}
+function syncDots() {
+  const tDot = CMAPS[S.traj.cmap].fn(0.55);
+  const iDot = CMAPS[S.iso.cmap].fn(0.55);
+  const tCss = `rgb(${tDot[0]|0},${tDot[1]|0},${tDot[2]|0})`;
+  const iCss = `rgb(${iDot[0]|0},${iDot[1]|0},${iDot[2]|0})`;
+  document.getElementById('dot-traj').style.background = tCss;
+  document.getElementById('dot-iso').style.background  = iCss;
+  // Pictograph icons inherit the cmap mid-color when their layer is on
+  const it = document.getElementById('icon-traj');
+  const ii = document.getElementById('icon-iso');
+  if (it) it.style.setProperty('--icon-color', tCss);
+  if (ii) ii.style.setProperty('--icon-color', iCss);
+}
+
+document.getElementById('sl-beta').addEventListener('input', e => {
+  const v = parseFloat(e.target.value);
+  if (S.isFine) {
+    S.betaCenter = v;
+    S.beta = v + Math.pow(10, S.sigmaExp) * S.fineDelta;
+  } else {
+    S.beta = v;
+    S.betaCenter = v;
+  }
+  syncBetaUI(); recomputeAndDraw(false);
+});
+document.getElementById('sl-fine-delta').addEventListener('input', e => {
+  S.fineDelta = parseFloat(e.target.value);
+  S.beta = S.betaCenter + Math.pow(10, S.sigmaExp) * S.fineDelta;
+  syncFineUI(); syncBetaUI(); recomputeAndDraw(false);
+});
+document.getElementById('sl-sigma').addEventListener('input', e => {
+  S.sigmaExp = parseFloat(e.target.value);
+  // Keep β and Δβ unchanged — absorb the σ change into betaCenter so that
+  // β = betaCenter + 10^σ · Δβ still holds with the new σ.
+  S.betaCenter = S.beta - Math.pow(10, S.sigmaExp) * S.fineDelta;
+  syncFineUI();
+  // β didn't change → no recompute
+});
+document.getElementById('sl-alpha-lo').addEventListener('input', e => {
+  const v = parseFloat(e.target.value);
+  if (v >= S.alphaHi - 0.05) { e.target.value = S.alphaHi - 0.05; return; }
+  S.alphaLo = v; syncAlphaUI(); recomputeAndDraw(false);
+});
+document.getElementById('sl-alpha-hi').addEventListener('input', e => {
+  const v = parseFloat(e.target.value);
+  if (v <= S.alphaLo + 0.05) { e.target.value = S.alphaLo + 0.05; return; }
+  S.alphaHi = v; syncAlphaUI(); recomputeAndDraw(false);
+});
+document.getElementById('sl-nwalks').addEventListener('input', e => {
+  S.nwalks = parseInt(e.target.value); syncNwalksUI(); recomputeAndDraw(false);
+});
+document.getElementById('sl-trans-traj').addEventListener('input', e => {
+  S.traj.opacity = parseFloat(e.target.value); syncTransUI(); redraw();
+});
+document.getElementById('sl-trans-iso').addEventListener('input', e => {
+  S.iso.opacity = parseFloat(e.target.value); syncTransUI(); redraw();
+});
+
+/* Inline numeric edit on value labels.
+   FIX: span is restored BEFORE set() is called, so any sync*() invoked
+   inside set() finds a span (not the disposed input) at that id. */
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+function editVal(which) {
+  const map = {
+    beta:    { vid:'v-beta',     get: () => S.beta,    set: v => {
+        S.beta = clamp(v, 0.1, 1e7);
+        S.betaCenter = S.beta; S.fineDelta = 0;
+        syncBetaUI(); syncFineUI(); recomputeAndDraw(true);
+      } },
+    alphaLo: { vid:'v-alpha-lo', get: () => S.alphaLo, set: v => { S.alphaLo = clamp(v, -10, S.alphaHi-0.05); syncAlphaUI(); recomputeAndDraw(false); } },
+    alphaHi: { vid:'v-alpha-hi', get: () => S.alphaHi, set: v => { S.alphaHi = clamp(v, S.alphaLo+0.05, 10); syncAlphaUI(); recomputeAndDraw(false); } },
+    nwalks:  { vid:'v-nwalks',   get: () => S.nwalks,  set: v => { S.nwalks = clamp(Math.round(v), 50, 1000); syncNwalksUI(); recomputeAndDraw(false); } },
+  };
+  const m = map[which]; if (!m) return;
+  const span = document.getElementById(m.vid);
+  if (!span || span.tagName === 'INPUT') return; // already editing
+  const orig = span.textContent;
+
+  const inp = document.createElement('input');
+  inp.className = 'lval-input'; inp.type = 'text';
+  inp.value = ('' + m.get()).trim();
+  span.replaceWith(inp);
+  inp.focus(); inp.select();
+
+  let done = false;
+  const finish = (apply) => {
+    if (done) return; done = true;
+
+    // 1) Restore span first so sync*() inside set() can find it by id
+    const newSpan = document.createElement('span');
+    newSpan.className = 'lval';
+    newSpan.id = m.vid;
+    newSpan.textContent = orig;
+    newSpan.onclick = () => editVal(which);
+    inp.replaceWith(newSpan);
+
+    // 2) Now apply value if requested + valid
+    if (apply) {
+      const v = parseFloat(inp.value);
+      if (isFinite(v)) m.set(v);
+    }
+  };
+  inp.addEventListener('blur', () => finish(true));
+  inp.addEventListener('keydown', e => {
+    if (e.key === 'Enter')      { e.preventDefault(); finish(true); }
+    else if (e.key === 'Escape'){ e.preventDefault(); finish(false); }
+  });
+}
+
+/* Colormap chips */
+function buildCmapChips(panelId, layer) {
+  const row = document.getElementById('cmap-row-'+panelId);
+  row.innerHTML = '';
+  Object.keys(CMAPS).forEach(key => {
+    const c = document.createElement('div');
+    c.className = 'cmap-chip' + (key === S[layer].cmap ? ' on' : '');
+    c.title = CMAPS[key].name;
+    c.style.backgroundImage = cmapGrad(CMAPS[key].fn);
+    c.dataset.key = key;
+    c.addEventListener('click', () => {
+      S[layer].cmap = key;
+      row.querySelectorAll('.cmap-chip').forEach(x => x.classList.toggle('on', x.dataset.key === key));
+      syncDots();
+      redraw();
+    });
+    row.appendChild(c);
+  });
+}
+
+/* Buttons */
+function randomBeta() {
+  const exp = 3 + Math.floor(Math.random() * 2);
+  const r = Math.floor(Math.random() * Math.pow(10, exp)) + (Math.random()*2 - 1);
+  S.beta = Math.max(1, r);
+  S.betaCenter = S.beta; S.fineDelta = 0;
+  syncBetaUI(); syncFineUI();
+  recomputeAndDraw(true);
+}
+function fitView() { autoFit(S.pd); draw(); }
+
+/* ═══════════════════════════════════════════════════
+   PAN / ZOOM
+═══════════════════════════════════════════════════ */
+function applyZoom(f, ox, oy) {
+  const { scale:sc, cx, cy } = S.tx;
+  const xf = (ox - cx) / sc, yf = (oy - cy) / sc, ns = sc * f;
+  S.tx = { scale: ns, cx: ox - xf*ns, cy: oy - yf*ns };
+  redraw();
+}
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  const d = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
+  applyZoom(d < 0 ? 1.08 : 1/1.08, e.clientX, e.clientY);
+}, { passive:false });
+
+let dragging = false, dragX = 0, dragY = 0;
+canvas.addEventListener('pointerdown', e => {
+  dragging = true; dragX = e.clientX; dragY = e.clientY;
+  canvas.setPointerCapture(e.pointerId);
+});
+canvas.addEventListener('pointermove', e => {
+  if (!dragging) return;
+  const dx = e.clientX - dragX, dy = e.clientY - dragY;
+  dragX = e.clientX; dragY = e.clientY;
+  S.tx.cx += dx; S.tx.cy += dy;
+  redraw();
+});
+canvas.addEventListener('pointerup',     () => { dragging = false; });
+canvas.addEventListener('pointercancel', () => { dragging = false; });
+canvas.addEventListener('dblclick', () => fitView());
+
+const touches = new Map();
+canvas.addEventListener('touchstart', e => {
+  for (const t of e.changedTouches) touches.set(t.identifier, { x: t.clientX, y: t.clientY });
+}, { passive:true });
+canvas.addEventListener('touchmove', e => {
+  if (e.touches.length === 2) {
+    e.preventDefault();
+    const a = e.touches[0], b = e.touches[1];
+    const pa = touches.get(a.identifier), pb = touches.get(b.identifier);
+    if (!pa || !pb) return;
+    const pdist = Math.hypot(pa.x-pb.x, pa.y-pb.y);
+    const cdist = Math.hypot(a.clientX-b.clientX, a.clientY-b.clientY);
+    const ox = (a.clientX + b.clientX)/2, oy = (a.clientY + b.clientY)/2;
+    if (pdist > 1) applyZoom(cdist / pdist, ox, oy);
+    touches.set(a.identifier, { x:a.clientX, y:a.clientY });
+    touches.set(b.identifier, { x:b.clientX, y:b.clientY });
+  }
+}, { passive:false });
+canvas.addEventListener('touchend', e => {
+  for (const t of e.changedTouches) touches.delete(t.identifier);
+}, { passive:true });
+
+/* ═══════════════════════════════════════════════════
+   TOOLTIP (hover on desktop, long-press on mobile)
+═══════════════════════════════════════════════════ */
+const tooltipEl = document.createElement('div');
+tooltipEl.className = 'tooltip';
+document.body.appendChild(tooltipEl);
+
+// Detect hover-capable input. iOS fires synthetic mouse events after touchend,
+// which would otherwise show + stick the tooltip on every tap. Gating on
+// (hover: hover) means touch-only devices skip the mouseenter path entirely.
+const canHover = window.matchMedia('(hover: hover)').matches;
+
+function showTooltip(target, text) {
+  const r = target.getBoundingClientRect();
+  tooltipEl.textContent = text;
+  // Reset transform — we'll compute absolute coordinates and clamp to viewport
+  tooltipEl.style.transform = '';
+  // Park off-screen so we can measure the real laid-out size with the new text
+  tooltipEl.style.left = '-9999px';
+  tooltipEl.style.top  = '-9999px';
+  tooltipEl.classList.add('show');
+  const tw = tooltipEl.offsetWidth;
+  const th = tooltipEl.offsetHeight;
+  const margin = 8;
+  let left, top;
+  if (canHover) {
+    // Desktop: below the target, centered
+    left = r.left + r.width / 2 - tw / 2;
+    top  = r.bottom + 8;
+  } else {
+    // Touch: pick a side that won't be hidden by the user's thumb.
+    // Above is best (thumb is below the contact point); fall back to the
+    // side with more available space if there's no room above.
+    const spaceAbove = r.top;
+    const spaceLeft  = r.left;
+    const spaceRight = window.innerWidth - r.right;
+    if (spaceAbove > th + 12) {
+      left = r.left + r.width / 2 - tw / 2;
+      top  = r.top - th - 8;
+    } else if (spaceRight >= spaceLeft) {
+      left = r.right + 12;
+      top  = r.top + r.height / 2 - th / 2;
+    } else {
+      left = r.left - tw - 12;
+      top  = r.top + r.height / 2 - th / 2;
+    }
+  }
+  // Final clamp so the tooltip never extends past the viewport edges
+  left = Math.max(margin, Math.min(left, window.innerWidth  - tw - margin));
+  top  = Math.max(margin, Math.min(top,  window.innerHeight - th - margin));
+  tooltipEl.style.left = left + 'px';
+  tooltipEl.style.top  = top  + 'px';
+}
+function hideTooltip() { tooltipEl.classList.remove('show'); }
+
+function bindTooltip(el) {
+  const text = el.dataset.tip;
+  if (!text) return;
+  if (canHover) {
+    el.addEventListener('mouseenter', () => showTooltip(el, text));
+    el.addEventListener('mouseleave', hideTooltip);
+  }
+  // Long-press only — 600 ms is comfortable for an intentional hold,
+  // long enough that it won't fire on a normal tap.
+  let timer = null;
+  el.addEventListener('touchstart', () => {
+    timer = setTimeout(() => showTooltip(el, text), 600);
+  }, { passive: true });
+  ['touchend', 'touchcancel', 'touchmove'].forEach(ev =>
+    el.addEventListener(ev, () => { clearTimeout(timer); hideTooltip(); }, { passive: true })
+  );
+}
+
+/* ═══════════════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════════════ */
+resizeCanvas();
+buildCmapChips('traj', 'traj');
+buildCmapChips('iso',  'iso');
+syncBetaUI(); syncAlphaUI(); syncNwalksUI(); syncTransUI(); syncFineUI(); syncDots();
+document.querySelectorAll('[data-tip]').forEach(bindTooltip);
+S.pd = compute(S.beta, S.nwalks, S.alphaLo, S.alphaHi);
+document.getElementById('s-N').textContent = S.pd.nrows;
+autoFit(S.pd);
+draw();
+
+</script>
+</body>
+</html>

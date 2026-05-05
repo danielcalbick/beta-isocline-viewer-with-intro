@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ζ — β-Isocline Explorer</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+html, body { width:100%; height:100%; margin:0; overflow:hidden; background:#06060a;
+  font-family:'IBM Plex Mono','Courier New',monospace; color:rgba(255,255,255,0.78); }
+#canvas { position:fixed; top:0; left:0; display:block; cursor:crosshair; touch-action:none; }
+
+.panel {
+  background:rgba(7,7,13,0.62);
+  backdrop-filter:blur(24px) saturate(160%); -webkit-backdrop-filter:blur(24px) saturate(160%);
+  border:1px solid rgba(255,255,255,0.1); border-radius:14px; overflow:hidden;
+  box-shadow:0 8px 40px rgba(0,0,0,0.48), inset 0 1.5px 0 rgba(255,255,255,0.07);
+}
+#params { position:fixed; top:15px; left:15px; z-index:20; min-width:260px; max-width:300px; padding:14px 16px; }
+#status { position:fixed; bottom:15px; left:15px; z-index:20; padding:10px 14px;
+  font-size:10.5px; letter-spacing:0.04em; color:rgba(255,255,255,0.55); min-width:260px; max-width:300px; }
+#status .k { color:rgba(255,255,255,0.32); }
+#status .v { color:#93c5fd; font-weight:500; }
+
+.title { font-size:9.5px; letter-spacing:0.18em; text-transform:uppercase;
+  color:rgba(255,255,255,0.32); margin-bottom:10px; padding-bottom:8px;
+  border-bottom:1px solid rgba(255,255,255,0.06); display:flex; justify-content:space-between; }
+.title b { color:rgba(255,255,255,0.62); font-weight:500; letter-spacing:0.2em; }
+
+.row { margin-bottom:13px; }
+.row:last-child { margin-bottom:0; }
+.lbl { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:5px; }
+.lname { font-size:14px; color:rgba(255,255,255,0.55); letter-spacing:0.01em;
+  font-family:'KaTeX_Math','STIX Two Math',Georgia,serif; font-style:italic; }
+.lval { font-size:12px; font-weight:500; color:#93c5fd; letter-spacing:0.02em; min-width:70px; text-align:right;
+  cursor:text; border-bottom:1px solid transparent; transition:border-color 0.15s; }
+.lval:hover { border-bottom-color:rgba(147,197,253,0.35); }
+.lval-input { font-family:'IBM Plex Mono',monospace; font-size:13px; color:#93c5fd; background:transparent;
+  border:none; border-bottom:1px solid #93c5fd; outline:none; text-align:right; width:90px; padding:0; }
+
+input[type=range] {
+  -webkit-appearance:none; appearance:none; width:100%; height:2px;
+  background:rgba(255,255,255,0.1); border-radius:1px; outline:none; cursor:ew-resize; display:block;
+  margin:0; }
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance:none; width:13px; height:13px; border-radius:50%;
+  background:radial-gradient(circle at 38% 32%, rgba(255,255,255,0.95) 0%, rgba(160,200,255,0.82) 42%, rgba(85,148,238,0.96) 100%);
+  cursor:ew-resize; margin-top:-5.5px;
+  box-shadow:0 0 10px rgba(147,197,253,0.62), 0 2px 4px rgba(0,0,0,0.38), inset 0 1px 0 rgba(255,255,255,0.65);
+  transition:box-shadow 0.15s, transform 0.15s; }
+input[type=range]::-webkit-slider-thumb:hover {
+  box-shadow:0 0 16px rgba(147,197,253,0.88), 0 2px 4px rgba(0,0,0,0.38), inset 0 1px 0 rgba(255,255,255,0.65);
+  transform:scale(1.1); }
+input[type=range]::-moz-range-thumb { width:13px; height:13px; border-radius:50%;
+  background:radial-gradient(circle at 38% 32%, rgba(255,255,255,0.95) 0%, rgba(160,200,255,0.82) 42%, rgba(85,148,238,0.96) 100%);
+  border:none; cursor:ew-resize;
+  box-shadow:0 0 10px rgba(147,197,253,0.62), 0 2px 4px rgba(0,0,0,0.38); }
+
+.divider { height:1px; background:rgba(255,255,255,0.06); margin:12px 0; }
+
+.cmap-row { display:flex; gap:5px; flex-wrap:wrap; margin-top:6px; }
+.cmap-chip { flex:1; min-width:0; height:18px; border-radius:3px; cursor:pointer;
+  border:1.5px solid transparent; transition:border-color 0.15s, transform 0.15s; }
+.cmap-chip:hover { transform:translateY(-1px); }
+.cmap-chip.on { border-color:rgba(147,197,253,0.85); box-shadow:0 0 0 1px rgba(7,7,13,0.6) inset; }
+
+.btn-row { display:flex; gap:6px; margin-top:6px; }
+.btn { flex:1; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); border-radius:6px;
+  color:rgba(255,255,255,0.55); font-family:inherit; font-size:9.5px; letter-spacing:0.1em; text-transform:uppercase;
+  padding:7px 6px; cursor:pointer; transition:all 0.15s; }
+.btn:hover { background:rgba(255,255,255,0.08); color:rgba(255,255,255,0.85); }
+.btn.on { background:rgba(147,197,253,0.12); border-color:rgba(147,197,253,0.4); color:#93c5fd; }
+.btn.busy { opacity:0.5; cursor:wait; }
+
+#busy { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); z-index:30;
+  font-size:11px; letter-spacing:0.18em; color:rgba(147,197,253,0.85); text-transform:uppercase;
+  pointer-events:none; opacity:0; transition:opacity 0.15s; }
+#busy.on { opacity:1; }
+
+.formula { color:rgba(255,255,255,0.42); font-size:11px; line-height:1.5; margin-bottom:10px;
+  padding-bottom:9px; border-bottom:1px solid rgba(255,255,255,0.06);
+  font-family:'KaTeX_Math','STIX Two Math',Georgia,serif; font-style:italic; }
+
+.range-pair { display:flex; gap:8px; }
+.range-pair > div { flex:1; min-width:0; }
+.range-pair .lname { font-size:13px; }
+
+@media (max-width: 520px) {
+  #params, #status { min-width:0; max-width:calc(100vw - 30px); }
+  #status { font-size:9.5px; }
+}
+</style>
+</head>
+<body>
+
+<canvas id="canvas"></canvas>
+<div id="busy">computing</div>
+
+<div class="panel" id="params">
+  <div class="title"><span><b>ζ</b> · β-isocline</span><span style="color:rgba(255,255,255,0.22)">explorer</span></div>
+
+  <div class="formula">
+    ζ<sub>N</sub>(α + iβ) = Σ<sub>n=1..N</sub> n<sup>−α</sup> e<sup>i β ln n</sup>
+    &nbsp;·&nbsp; N = ⌊β/π⌋
+  </div>
+
+  <div class="row">
+    <div class="lbl"><span class="lname">β</span><span class="lval" id="v-beta" onclick="editVal('beta')">1234.000</span></div>
+    <input type="range" id="sl-beta" min="1" max="10000" step="0.5" value="1234">
+  </div>
+
+  <div class="row range-pair">
+    <div>
+      <div class="lbl"><span class="lname">α₀</span><span class="lval" id="v-alpha-lo" onclick="editVal('alphaLo')">−1.000</span></div>
+      <input type="range" id="sl-alpha-lo" min="-3" max="2.95" step="0.01" value="-1">
+    </div>
+    <div>
+      <div class="lbl"><span class="lname">α₁</span><span class="lval" id="v-alpha-hi" onclick="editVal('alphaHi')">2.000</span></div>
+      <input type="range" id="sl-alpha-hi" min="-2.95" max="3" step="0.01" value="2">
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="lbl"><span class="lname">N<sub>α</sub> &nbsp;<span style="color:rgba(255,255,255,0.25);font-style:normal;font-size:9.5px;letter-spacing:0.06em">walks</span></span><span class="lval" id="v-nwalks" onclick="editVal('nwalks')">1500</span></div>
+    <input type="range" id="sl-nwalks" min="100" max="10000" step="50" value="1500">
+  </div>
+
+  <div class="row">
+    <div class="lbl"><span class="lname">opacity</span><span class="lval" id="v-trans">0.20</span></div>
+    <input type="range" id="sl-trans" min="0.01" max="1" step="0.01" value="0.2">
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="row">
+    <div class="lbl" style="margin-bottom:0"><span style="font-size:9.5px;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,255,255,0.32)">colormap</span></div>
+    <div class="cmap-row" id="cmap-row"></div>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn" onclick="randomBeta()">RANDOM β</button>
+    <button class="btn" onclick="fitView()">FIT</button>
+    <button class="btn" id="render-btn" onclick="renderHQ()">RENDER 10K</button>
+  </div>
+</div>
+
+<div class="panel" id="status">
+  <span class="k">N</span> = <span class="v" id="s-N">—</span>
+  &nbsp;·&nbsp; <span class="k">vertices</span> = <span class="v" id="s-verts">—</span>
+  &nbsp;·&nbsp; <span class="k">compute</span> <span class="v" id="s-tc">—</span>ms
+  &nbsp;·&nbsp; <span class="k">draw</span> <span class="v" id="s-td">—</span>ms
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════
+   COLORMAPS
+═══════════════════════════════════════════════════ */
+function lerpS(t,s){
+  if(t<=s[0].t)return[s[0].r,s[0].g,s[0].b];
+  if(t>=s[s.length-1].t)return[s[s.length-1].r,s[s.length-1].g,s[s.length-1].b];
+  for(let i=0;i<s.length-1;i++){
+    if(t<=s[i+1].t){
+      const u=(t-s[i].t)/(s[i+1].t-s[i].t);
+      return[s[i].r+(s[i+1].r-s[i].r)*u,s[i].g+(s[i+1].g-s[i].g)*u,s[i].b+(s[i+1].b-s[i].b)*u];
+    }
+  }
+  return[s[s.length-1].r,s[s.length-1].g,s[s.length-1].b];
+}
+const CMAPS = {
+  parula: { name:'Parula',  fn:t=>lerpS(t,[{t:0,r:53,g:42,b:135},{t:0.2,r:15,g:92,b:221},{t:0.45,r:18,g:160,b:200},{t:0.7,r:120,g:198,b:120},{t:0.85,r:240,g:200,b:60},{t:1,r:250,g:230,b:35}]) },
+  viridis:{ name:'Viridis', fn:t=>lerpS(t,[{t:0,r:68,g:1,b:84},{t:.25,r:59,g:82,b:139},{t:.5,r:33,g:145,b:140},{t:.75,r:94,g:201,b:98},{t:1,r:253,g:231,b:37}]) },
+  turbo:  { name:'Turbo',   fn:t=>lerpS(t,[{t:0,r:48,g:18,b:59},{t:.2,r:50,g:99,b:204},{t:.4,r:66,g:204,b:173},{t:.6,r:188,g:230,b:49},{t:.8,r:249,g:156,b:29},{t:1,r:189,g:22,b:11}]) },
+  inferno:{ name:'Inferno', fn:t=>lerpS(t,[{t:0,r:0,g:0,b:4},{t:.2,r:51,g:13,b:76},{t:.4,r:132,g:32,b:107},{t:.6,r:203,g:71,b:47},{t:.8,r:245,g:163,b:5},{t:1,r:252,g:255,b:164}]) },
+  plasma: { name:'Plasma',  fn:t=>lerpS(t,[{t:0,r:13,g:8,b:135},{t:.25,r:126,g:3,b:168},{t:.5,r:204,g:71,b:120},{t:.75,r:248,g:149,b:64},{t:1,r:240,g:249,b:33}]) },
+  ocean:  { name:'Ocean',   fn:t=>lerpS(t,[{t:0,r:0,g:20,b:80},{t:.4,r:20,g:100,b:180},{t:.7,r:0,g:180,b:210},{t:1,r:180,g:240,b:255}]) },
+  bwr:    { name:'B-W-R',   fn:t=>lerpS(t,[{t:0,r:59,g:76,b:192},{t:.5,r:220,g:220,b:220},{t:1,r:180,g:4,b:38}]) },
+};
+
+function cmapGrad(fn) {
+  const s=[];
+  for(let i=0;i<=20;i++){const t=i/20,[r,g,b]=fn(t);s.push(`rgb(${r|0},${g|0},${b|0}) ${(t*100).toFixed(0)}%`);}
+  return `linear-gradient(90deg,${s.join(',')})`;
+}
+
+/* ═══════════════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════════════ */
+const S = {
+  beta: 1234,
+  nwalks: 1500,
+  alphaLo: -1, alphaHi: 2,
+  trans: 0.2,
+  cmap: 'parula',
+  pd: null,                       // {xMat, yMat, nrows, nwalks, betaUsed, aLo, aHi}
+  tx: { scale:50, cx:400, cy:400 },
+  busy: false,
+};
+
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d', { alpha:false });
+let cssW=0, cssH=0, dpr=1;
+
+function resizeCanvas() {
+  dpr = Math.max(1, window.devicePixelRatio || 1);
+  cssW = window.innerWidth; cssH = window.innerHeight;
+  canvas.width = cssW * dpr; canvas.height = cssH * dpr;
+  canvas.style.width = cssW+'px'; canvas.style.height = cssH+'px';
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+}
+window.addEventListener('resize', () => { resizeCanvas(); draw(); });
+
+/* ═══════════════════════════════════════════════════
+   COMPUTE  ── vectorized over α
+   For each step n we compute the SHARED phase factor
+   exp(iβ ln n) once, then multiply by n^(-α) for each
+   of nwalks α-values. Total work is O(N · nwalks).
+═══════════════════════════════════════════════════ */
+function compute(beta, nwalks, aLo, aHi) {
+  const t0 = performance.now();
+  const N = Math.max(2, Math.floor(beta / Math.PI) + 1);
+  const xMat = new Float32Array(N * nwalks);
+  const yMat = new Float32Array(N * nwalks);
+  const cx = new Float64Array(nwalks);
+  const cy = new Float64Array(nwalks);
+  const negA = new Float64Array(nwalks);
+  const dA = nwalks > 1 ? (aHi - aLo) / (nwalks - 1) : 0;
+  for (let j = 0; j < nwalks; j++) negA[j] = -(aLo + dA * j);
+
+  // n=1: every walk lands at (1, 0) since 1^(-α) = 1, ln(1)=0
+  for (let j = 0; j < nwalks; j++) { cx[j] = 1; cy[j] = 0; xMat[j] = 1; yMat[j] = 0; }
+
+  for (let i = 1; i < N; i++) {
+    const n = i + 1;
+    const lnn = Math.log(n);
+    const cosT = Math.cos(beta * lnn);
+    const sinT = Math.sin(beta * lnn);
+    const off = i * nwalks;
+    // Hot inner loop — keep it lean
+    for (let j = 0; j < nwalks; j++) {
+      const r = Math.exp(negA[j] * lnn);   // = n^(-α_j)
+      cx[j] += r * cosT;
+      cy[j] -= r * sinT;                    // matches MATLAB: ival = -cumsum(...)
+      xMat[off + j] = cx[j];
+      yMat[off + j] = cy[j];
+    }
+  }
+  const tc = performance.now() - t0;
+  return { xMat, yMat, nrows: N, nwalks, betaUsed: beta, aLo, aHi, tc };
+}
+
+/* ═══════════════════════════════════════════════════
+   AUTO-FIT  ── compute data extents and set transform
+═══════════════════════════════════════════════════ */
+function autoFit(pd) {
+  if (!pd) return;
+  const { xMat, yMat, nrows, nwalks } = pd;
+  let x0 = +Infinity, x1 = -Infinity, y0 = +Infinity, y1 = -Infinity;
+  // Skip first row since it's degenerate at (1,0)
+  const start = nwalks;
+  const total = nrows * nwalks;
+  for (let k = start; k < total; k++) {
+    const x = xMat[k], y = yMat[k];
+    if (x < x0) x0 = x;
+    if (x > x1) x1 = x;
+    if (y < y0) y0 = y;
+    if (y > y1) y1 = y;
+  }
+  if (!isFinite(x0)) return;
+  const xR = (x1 - x0) || 2, yR = (y1 - y0) || 2;
+  const xPad = 0.08 * xR, yPad = 0.08 * yR;
+  const xl = [x0 - xPad, x1 + xPad], yl = [y0 - yPad, y1 + yPad];
+  const ca = cssW / cssH, pa = (xl[1]-xl[0]) / (yl[1]-yl[0]);
+  if (ca > pa) { const c = (xl[0]+xl[1])/2, nr = (yl[1]-yl[0])*ca; xl[0]=c-nr/2; xl[1]=c+nr/2; }
+  else        { const c = (yl[0]+yl[1])/2, nr = (xl[1]-xl[0])/ca; yl[0]=c-nr/2; yl[1]=c+nr/2; }
+  const sc = cssW / (xl[1] - xl[0]);
+  S.tx = { scale: sc, cx: -xl[0]*sc, cy: yl[1]*sc };
+}
+
+/* ═══════════════════════════════════════════════════
+   DRAW  ── isoclines, batched into ~64 color bins
+   via Path2D so we issue ~64 stroke calls regardless
+   of how many segments are on screen.
+═══════════════════════════════════════════════════ */
+const N_BINS = 64;
+
+function drawGrid(W, H) {
+  const { scale:sc, cx:tcx, cy:tcy } = S.tx;
+  const xv = [-tcx/sc, (W-tcx)/sc], yv = [-(H-tcy)/sc, tcy/sc];
+  const vis = Math.min(Math.abs(xv[1]-xv[0]), Math.abs(yv[1]-yv[0]));
+  let st = vis / 12;
+  const e = Math.floor(Math.log10(st)), f = st / Math.pow(10,e);
+  st = f<1.5 ? Math.pow(10,e) : f<3.5 ? 2*Math.pow(10,e) : f<7.5 ? 5*Math.pow(10,e) : 10*Math.pow(10,e);
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+  ctx.beginPath();
+  for (let x = Math.floor(xv[0]/st)*st; x <= xv[1]+st; x += st) {
+    const sx = x*sc + tcx; ctx.moveTo(sx, 0); ctx.lineTo(sx, H);
+  }
+  for (let y = Math.floor(yv[0]/st)*st; y <= yv[1]+st; y += st) {
+    const sy = -y*sc + tcy; ctx.moveTo(0, sy); ctx.lineTo(W, sy);
+  }
+  ctx.stroke();
+  ctx.strokeStyle = 'rgba(255,255,255,0.18)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(0, tcy); ctx.lineTo(W, tcy);
+  ctx.moveTo(tcx, 0); ctx.lineTo(tcx, H); ctx.stroke();
+}
+
+function drawIsoclines(W, H) {
+  const pd = S.pd; if (!pd) return 0;
+  const { xMat, yMat, nrows, nwalks } = pd;
+  const { scale:sc, cx:tcx, cy:tcy } = S.tx;
+  const cmap = CMAPS[S.cmap].fn;
+
+  // Precompute bin index per α
+  const binOf = new Uint8Array(nwalks);
+  for (let j = 0; j < nwalks; j++) {
+    const t = nwalks > 1 ? j / (nwalks - 1) : 0;
+    binOf[j] = Math.min(N_BINS - 1, (t * N_BINS) | 0);
+  }
+  // Bin colors
+  const binColor = [];
+  for (let k = 0; k < N_BINS; k++) {
+    const t = (k + 0.5) / N_BINS;
+    binColor.push(cmap(t));
+  }
+  // Path2D per bin
+  const paths = [];
+  for (let k = 0; k < N_BINS; k++) paths.push(new Path2D());
+
+  // Iterate isoclines (skip i=0, degenerate)
+  let drawnSeg = 0;
+  for (let i = 1; i < nrows; i++) {
+    const off = i * nwalks;
+    let curBin = -1;
+    let gapped = true;
+    let pSx = 0, pSy = 0;
+    let pInside = false;
+    for (let j = 0; j < nwalks; j++) {
+      const sx = xMat[off + j] * sc + tcx;
+      const sy = -yMat[off + j] * sc + tcy;
+      const inside = !(sx < -2 || sx > W+2 || sy < -2 || sy > H+2);
+      if (j === 0) { pSx = sx; pSy = sy; pInside = inside; continue; }
+      const segOff = !inside && !pInside; // both endpoints strictly out → cull
+      if (segOff) {
+        gapped = true;
+      } else {
+        const bin = binOf[j-1];
+        if (bin !== curBin || gapped) {
+          paths[bin].moveTo(pSx, pSy);
+          curBin = bin;
+          gapped = false;
+        }
+        paths[bin].lineTo(sx, sy);
+        drawnSeg++;
+      }
+      pSx = sx; pSy = sy; pInside = inside;
+    }
+  }
+
+  // Stroke each bin once
+  ctx.lineWidth = 1;
+  ctx.lineCap = 'butt';
+  ctx.lineJoin = 'round';
+  const al = S.trans;
+  for (let k = 0; k < N_BINS; k++) {
+    const [r, g, b] = binColor[k];
+    ctx.strokeStyle = `rgba(${r|0},${g|0},${b|0},${al})`;
+    ctx.stroke(paths[k]);
+  }
+  return drawnSeg;
+}
+
+function draw() {
+  const t0 = performance.now();
+  ctx.fillStyle = '#06060a';
+  ctx.fillRect(0, 0, cssW, cssH);
+  drawGrid(cssW, cssH);
+  const segs = drawIsoclines(cssW, cssH);
+  const td = performance.now() - t0;
+  document.getElementById('s-td').textContent = td.toFixed(0);
+  document.getElementById('s-verts').textContent = formatBig(segs);
+  if (S.pd) document.getElementById('s-tc').textContent = S.pd.tc.toFixed(0);
+}
+
+function formatBig(n) {
+  if (n >= 1e6) return (n/1e6).toFixed(2)+'M';
+  if (n >= 1e3) return (n/1e3).toFixed(1)+'K';
+  return ''+n;
+}
+
+/* ═══════════════════════════════════════════════════
+   RECOMPUTE / SCHEDULE
+═══════════════════════════════════════════════════ */
+let raf = null, pending = false, lastDragTime = 0;
+
+function showBusy(on) {
+  document.getElementById('busy').classList.toggle('on', on);
+}
+
+function recomputeAndDraw(refit) {
+  // Always async — and use double-rAF so the busy indicator actually paints
+  // before the (potentially long) compute + draw block executes.
+  if (raf) cancelAnimationFrame(raf);
+  showBusy(true);
+  raf = requestAnimationFrame(() => {
+    raf = requestAnimationFrame(() => {
+      raf = null;
+      S.pd = compute(S.beta, S.nwalks, S.alphaLo, S.alphaHi);
+      if (refit) autoFit(S.pd);
+      document.getElementById('s-N').textContent = S.pd.nrows;
+      draw();
+      showBusy(false);
+    });
+  });
+}
+
+function redraw() {
+  if (raf) return; // already pending
+  raf = requestAnimationFrame(() => { raf = null; draw(); });
+}
+
+/* ═══════════════════════════════════════════════════
+   UI HOOKUP
+═══════════════════════════════════════════════════ */
+function fmtBeta(b) { return b.toFixed(3); }
+function fmtAlpha(a) { return (a >= 0 ? ' ' : '−') + Math.abs(a).toFixed(3); }
+
+function syncBetaUI() { document.getElementById('v-beta').textContent = fmtBeta(S.beta); document.getElementById('sl-beta').value = S.beta; }
+function syncAlphaUI() {
+  document.getElementById('v-alpha-lo').textContent = fmtAlpha(S.alphaLo);
+  document.getElementById('v-alpha-hi').textContent = fmtAlpha(S.alphaHi);
+  document.getElementById('sl-alpha-lo').value = S.alphaLo;
+  document.getElementById('sl-alpha-hi').value = S.alphaHi;
+}
+function syncNwalksUI() { document.getElementById('v-nwalks').textContent = S.nwalks; document.getElementById('sl-nwalks').value = S.nwalks; }
+function syncTransUI() { document.getElementById('v-trans').textContent = S.trans.toFixed(2); document.getElementById('sl-trans').value = S.trans; }
+
+document.getElementById('sl-beta').addEventListener('input', e => {
+  S.beta = parseFloat(e.target.value);
+  syncBetaUI();
+  recomputeAndDraw(false);
+});
+document.getElementById('sl-beta').addEventListener('change', e => {
+  // On release, optionally autofit if the figure has wandered far
+  // (we don't autofit during drag to avoid jumpy framing)
+});
+
+document.getElementById('sl-alpha-lo').addEventListener('input', e => {
+  const v = parseFloat(e.target.value);
+  if (v >= S.alphaHi - 0.05) { e.target.value = S.alphaHi - 0.05; return; }
+  S.alphaLo = v; syncAlphaUI(); recomputeAndDraw(false);
+});
+document.getElementById('sl-alpha-hi').addEventListener('input', e => {
+  const v = parseFloat(e.target.value);
+  if (v <= S.alphaLo + 0.05) { e.target.value = S.alphaLo + 0.05; return; }
+  S.alphaHi = v; syncAlphaUI(); recomputeAndDraw(false);
+});
+
+document.getElementById('sl-nwalks').addEventListener('input', e => {
+  S.nwalks = parseInt(e.target.value);
+  syncNwalksUI();
+  recomputeAndDraw(false);
+});
+
+document.getElementById('sl-trans').addEventListener('input', e => {
+  S.trans = parseFloat(e.target.value);
+  syncTransUI();
+  redraw();
+});
+
+/* Inline edit on value labels */
+function editVal(which) {
+  const map = {
+    beta:    { vid:'v-beta',     get: () => S.beta,                 set: v => { S.beta = clamp(v, 0.1, 1e7); syncBetaUI(); recomputeAndDraw(true); } },
+    alphaLo: { vid:'v-alpha-lo', get: () => S.alphaLo,              set: v => { S.alphaLo = clamp(v, -10, S.alphaHi-0.05); syncAlphaUI(); recomputeAndDraw(false); } },
+    alphaHi: { vid:'v-alpha-hi', get: () => S.alphaHi,              set: v => { S.alphaHi = clamp(v, S.alphaLo+0.05, 10); syncAlphaUI(); recomputeAndDraw(false); } },
+    nwalks:  { vid:'v-nwalks',   get: () => S.nwalks,               set: v => { S.nwalks = clamp(Math.round(v), 50, 20000); syncNwalksUI(); recomputeAndDraw(false); } },
+  };
+  const m = map[which]; if (!m) return;
+  const span = document.getElementById(m.vid);
+  const orig = span.textContent;
+  const inp = document.createElement('input');
+  inp.className = 'lval-input'; inp.type = 'text'; inp.value = m.get();
+  span.replaceWith(inp); inp.focus(); inp.select();
+  const commit = (apply) => {
+    if (apply) {
+      const v = parseFloat(inp.value);
+      if (isFinite(v)) m.set(v);
+    }
+    const newSpan = document.createElement('span');
+    newSpan.className = 'lval'; newSpan.id = m.vid;
+    newSpan.onclick = () => editVal(which);
+    newSpan.textContent = orig; // sync* below will overwrite with the canonical value
+    inp.replaceWith(newSpan);
+    if (which === 'beta') syncBetaUI();
+    else if (which === 'alphaLo' || which === 'alphaHi') syncAlphaUI();
+    else if (which === 'nwalks') syncNwalksUI();
+  };
+  inp.addEventListener('blur', () => commit(true));
+  inp.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); inp.blur(); }
+    else if (e.key === 'Escape') { e.preventDefault(); commit(false); }
+  });
+}
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+/* Colormap chips */
+function buildCmapChips() {
+  const row = document.getElementById('cmap-row');
+  row.innerHTML = '';
+  Object.keys(CMAPS).forEach(key => {
+    const c = document.createElement('div');
+    c.className = 'cmap-chip' + (key === S.cmap ? ' on' : '');
+    c.title = CMAPS[key].name;
+    c.style.background = cmapGrad(CMAPS[key].fn);
+    c.dataset.key = key;
+    c.addEventListener('click', () => {
+      S.cmap = key;
+      document.querySelectorAll('.cmap-chip').forEach(x => x.classList.toggle('on', x.dataset.key === key));
+      redraw();
+    });
+    row.appendChild(c);
+  });
+}
+
+/* Buttons */
+function randomBeta() {
+  // Match Daniel's MATLAB: randi(10.^(3:4),1) + randn  → integer in [1, 10000] + small noise
+  const exp = 3 + Math.floor(Math.random()*2);   // 3 or 4
+  const r = Math.floor(Math.random() * Math.pow(10, exp)) + (Math.random()*2 - 1);
+  S.beta = Math.max(1, r);
+  syncBetaUI();
+  recomputeAndDraw(true);
+}
+
+function fitView() { autoFit(S.pd); draw(); }
+
+function renderHQ() {
+  const btn = document.getElementById('render-btn');
+  btn.classList.add('busy'); btn.textContent = '…';
+  S.nwalks = 10000;
+  syncNwalksUI();
+  setTimeout(() => {
+    recomputeAndDraw(false);
+    btn.classList.remove('busy');
+    btn.textContent = 'RENDER 10K';
+  }, 50);
+}
+
+/* ═══════════════════════════════════════════════════
+   PAN / ZOOM
+═══════════════════════════════════════════════════ */
+function applyZoom(f, ox, oy) {
+  const { scale:sc, cx, cy } = S.tx;
+  const xf = (ox - cx) / sc, yf = (oy - cy) / sc, ns = sc * f;
+  S.tx = { scale: ns, cx: ox - xf*ns, cy: oy - yf*ns };
+  redraw();
+}
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  const d = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
+  applyZoom(d < 0 ? 1.08 : 1/1.08, e.clientX, e.clientY);
+}, { passive:false });
+
+let dragging = false, dragX = 0, dragY = 0;
+canvas.addEventListener('pointerdown', e => {
+  dragging = true; dragX = e.clientX; dragY = e.clientY;
+  canvas.setPointerCapture(e.pointerId);
+});
+canvas.addEventListener('pointermove', e => {
+  if (!dragging) return;
+  const dx = e.clientX - dragX, dy = e.clientY - dragY;
+  dragX = e.clientX; dragY = e.clientY;
+  S.tx.cx += dx; S.tx.cy += dy;
+  redraw();
+});
+canvas.addEventListener('pointerup', e => { dragging = false; });
+canvas.addEventListener('pointercancel', () => { dragging = false; });
+canvas.addEventListener('dblclick', () => fitView());
+
+// Pinch zoom on touch
+let touches = new Map();
+canvas.addEventListener('touchstart', e => {
+  for (const t of e.changedTouches) touches.set(t.identifier, { x: t.clientX, y: t.clientY });
+}, { passive:true });
+canvas.addEventListener('touchmove', e => {
+  if (e.touches.length === 2) {
+    e.preventDefault();
+    const a = e.touches[0], b = e.touches[1];
+    const pa = touches.get(a.identifier), pb = touches.get(b.identifier);
+    if (!pa || !pb) return;
+    const pdist = Math.hypot(pa.x-pb.x, pa.y-pb.y);
+    const cdist = Math.hypot(a.clientX-b.clientX, a.clientY-b.clientY);
+    const ox = (a.clientX + b.clientX)/2, oy = (a.clientY + b.clientY)/2;
+    if (pdist > 1) applyZoom(cdist / pdist, ox, oy);
+    touches.set(a.identifier, { x:a.clientX, y:a.clientY });
+    touches.set(b.identifier, { x:b.clientX, y:b.clientY });
+  }
+}, { passive:false });
+canvas.addEventListener('touchend', e => {
+  for (const t of e.changedTouches) touches.delete(t.identifier);
+}, { passive:true });
+
+/* ═══════════════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════════════ */
+resizeCanvas();
+buildCmapChips();
+syncBetaUI(); syncAlphaUI(); syncNwalksUI(); syncTransUI();
+S.pd = compute(S.beta, S.nwalks, S.alphaLo, S.alphaHi);
+document.getElementById('s-N').textContent = S.pd.nrows;
+autoFit(S.pd);
+draw();
+
+</script>
+</body>
+</html>
