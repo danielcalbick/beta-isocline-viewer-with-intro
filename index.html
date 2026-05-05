@@ -9,7 +9,7 @@
 :root {
   --bg: #06060a;
   --panel-bg: rgba(7,7,13,0.66);
-  --panel-border: rgba(255,255,255,0.09);
+  --panel-border: rgba(255,255,255,0.13);
   --text: rgba(255,255,255,0.78);
   --text-dim: rgba(255,255,255,0.42);
   --text-faint: rgba(255,255,255,0.28);
@@ -40,7 +40,7 @@ html, body {
   backdrop-filter:blur(20px) saturate(160%);
   -webkit-backdrop-filter:blur(20px) saturate(160%);
   border:1px solid var(--panel-border); border-radius:13px; overflow:hidden;
-  box-shadow:0 8px 32px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.06);
+  box-shadow:0 0 18px rgba(255,255,255,0.035), 0 8px 32px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.08);
 }
 
 #left-stack {
@@ -321,7 +321,7 @@ input[type=range]::-moz-range-thumb {
   padding:10px 14px; cursor:pointer; transition:all 0.15s;
   -webkit-tap-highlight-color:transparent;
   white-space:nowrap;
-  box-shadow:0 4px 16px rgba(0,0,0,0.35);
+  box-shadow:0 0 12px rgba(255,255,255,0.03), 0 4px 16px rgba(0,0,0,0.35);
 }
 .floating-btn:hover  { background:rgba(7,7,13,0.82); color:rgba(255,255,255,0.95); }
 .floating-btn:active { background:rgba(7,7,13,0.88); }
@@ -340,7 +340,7 @@ input[type=range]::-moz-range-thumb {
   backdrop-filter:blur(20px) saturate(160%);
   -webkit-backdrop-filter:blur(20px) saturate(160%);
   border:1px solid var(--panel-border);
-  box-shadow:0 4px 16px rgba(0,0,0,0.35);
+  box-shadow:0 0 12px rgba(255,255,255,0.03), 0 4px 16px rgba(0,0,0,0.35);
   cursor:pointer; -webkit-tap-highlight-color:transparent;
   display:flex; align-items:center; justify-content:center;
   padding:0;
@@ -366,21 +366,22 @@ input[type=range]::-moz-range-thumb {
 /* ── TOOLTIP (custom — works on hover and long-press) ─ */
 .tooltip {
   position:fixed; z-index:50;
-  background:rgba(7,7,13,0.88);
-  backdrop-filter:blur(10px) saturate(160%);
-  -webkit-backdrop-filter:blur(10px) saturate(160%);
-  border:1px solid rgba(255,255,255,0.12);
-  border-radius:7px;
-  color:rgba(255,255,255,0.88);
-  font-size:10.5px; letter-spacing:0.03em;
-  padding:6px 10px;
+  background:rgba(7,7,13,0.92);
+  backdrop-filter:blur(12px) saturate(160%);
+  -webkit-backdrop-filter:blur(12px) saturate(160%);
+  border:1px solid rgba(255,255,255,0.1);
+  border-radius:8px;
+  color:rgba(255,255,255,0.92);
+  font-size:10.5px; letter-spacing:0.02em;
+  padding:7px 11px;
   pointer-events:none;
-  opacity:0; transition:opacity 0.15s ease;
+  opacity:0; transform:translateY(-3px);
+  transition:opacity 0.2s ease, transform 0.2s ease;
   white-space:normal; max-width:min(240px, calc(100vw - 24px));
-  line-height:1.35;
-  box-shadow:0 4px 18px rgba(0,0,0,0.55);
+  line-height:1.4;
+  box-shadow:0 6px 24px rgba(0,0,0,0.5);
 }
-.tooltip.show { opacity:1; }
+.tooltip.show { opacity:1; transform:translateY(0); }
 
 /* ── MOBILE PARAMS FAB (menu button) ────────────── */
 .m-circ {
@@ -389,7 +390,7 @@ input[type=range]::-moz-range-thumb {
   backdrop-filter:blur(20px) saturate(160%);
   -webkit-backdrop-filter:blur(20px) saturate(160%);
   border:1px solid var(--panel-border);
-  box-shadow:0 4px 16px rgba(0,0,0,0.35);
+  box-shadow:0 0 12px rgba(255,255,255,0.03), 0 4px 16px rgba(0,0,0,0.35);
   cursor:pointer; -webkit-tap-highlight-color:transparent;
   display:flex; align-items:center; justify-content:center;
   padding:0;
@@ -451,7 +452,7 @@ input[type=range]::-moz-range-thumb {
   display:flex; align-items:center; justify-content:center;
   padding:0;
   color:rgba(255,255,255,0.55);
-  box-shadow:0 4px 16px rgba(0,0,0,0.35);
+  box-shadow:0 0 12px rgba(255,255,255,0.03), 0 4px 16px rgba(0,0,0,0.35);
   transition:color 0.18s, transform 0.14s, background 0.18s, border-color 0.18s, box-shadow 0.18s;
 }
 .floating-icon:hover  { color:rgba(255,255,255,0.95); transform:scale(1.06); }
@@ -652,7 +653,7 @@ input[type=range]::-moz-range-thumb {
   <div class="layer-bar" id="layer-bar">
     <button class="layer-icon on" id="icon-traj" onclick="toggleViz('traj', event)" data-tip="Trajectories — α-walks through time">
       <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M14 12.5 a2 2 0 1 1 -2 -2 a4 4 0 1 0 4 4 a6 6 0 1 1 -6 -6"/>
+        <path d="M12 12 m1 0 a1 1 0 1 1 -2 0 a2 2 0 1 1 4 0 a3 3 0 1 1 -6 0 a4 4 0 1 1 8 0 a5 5 0 1 1 -10 0"/>
       </svg>
     </button>
     <button class="layer-icon on" id="icon-iso" onclick="toggleViz('iso', event)" data-tip="Isoclines — snapshots across α at each τ">
@@ -749,7 +750,7 @@ input[type=range]::-moz-range-thumb {
 <div id="action-bar">
   <button class="floating-btn" onclick="randomBeta()">Random β</button>
   <button class="floating-btn" onclick="fitView()">Fit</button>
-  <button class="floating-icon" id="u1-btn" onclick="toggleU1()" data-tip="U(1) — unit and half-unit reference circles">
+  <button class="floating-icon on" id="u1-btn" onclick="toggleU1()" data-tip="U(1) — unit and half-unit reference circles">
     <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5">
       <circle cx="12" cy="12" r="9"/>
       <circle cx="12" cy="12" r="4.5"/>
@@ -816,7 +817,7 @@ const S = {
   miniIdx: 0,
   // display
   bgValue: 0.024,    // canvas background grayscale [0..1]
-  u1: false,         // render U(1) reference circles
+  u1: true,          // render U(1) reference circles
 };
 const POPEN = { params:true, traj:false, iso:false };
 const N_MINI = 2; // β, α-pair
@@ -1668,12 +1669,35 @@ document.body.appendChild(tooltipEl);
 // (hover: hover) means touch-only devices skip the mouseenter path entirely.
 const canHover = window.matchMedia('(hover: hover)').matches;
 
+// Hover-warmth pattern (macOS / Linear / VS Code): the first tooltip waits
+// for an intentional pause; once you're in "tooltip mode," subsequent ones
+// appear quickly. Drift away for COOLDOWN ms and you're cold again.
+const TT_GAP        = 10;     // px from target
+const TT_COLD_DELAY = 650;
+const TT_WARM_DELAY = 90;
+const TT_COOLDOWN   = 400;
+let _ttTimer = null;
+let _ttLastHidden = -Infinity;
+
+function scheduleTooltip(target, text) {
+  if (_ttTimer) clearTimeout(_ttTimer);
+  const sinceHide = performance.now() - _ttLastHidden;
+  const delay = sinceHide < TT_COOLDOWN ? TT_WARM_DELAY : TT_COLD_DELAY;
+  _ttTimer = setTimeout(() => { _ttTimer = null; showTooltip(target, text); }, delay);
+}
+function cancelTooltip() {
+  if (_ttTimer) { clearTimeout(_ttTimer); _ttTimer = null; }
+}
+function hideTooltip() {
+  if (tooltipEl.classList.contains('show')) _ttLastHidden = performance.now();
+  tooltipEl.classList.remove('show');
+}
+
 function showTooltip(target, text) {
   const r = target.getBoundingClientRect();
   tooltipEl.textContent = text;
-  // Reset transform — we'll compute absolute coordinates and clamp to viewport
-  tooltipEl.style.transform = '';
-  // Park off-screen so we can measure the real laid-out size with the new text
+  // Park off-screen, then add .show so the rise+fade transition starts;
+  // measure the laid-out size and finally place it.
   tooltipEl.style.left = '-9999px';
   tooltipEl.style.top  = '-9999px';
   tooltipEl.classList.add('show');
@@ -1682,44 +1706,50 @@ function showTooltip(target, text) {
   const margin = 8;
   let left, top;
   if (canHover) {
-    // Desktop: below the target, centered
+    // Desktop: prefer below (cursor approaches from above), but flip to
+    // above for bottom-anchored targets so the tooltip doesn't sit on
+    // top of the panel it belongs to.
+    const spaceBelow = window.innerHeight - r.bottom;
+    if (spaceBelow > th + TT_GAP + 6) {
+      top = r.bottom + TT_GAP;
+    } else {
+      top = r.top - th - TT_GAP;
+    }
     left = r.left + r.width / 2 - tw / 2;
-    top  = r.bottom + 8;
   } else {
-    // Touch: pick a side that won't be hidden by the user's thumb.
-    // Above is best (thumb is below the contact point); fall back to the
-    // side with more available space if there's no room above.
+    // Touch: prefer above (away from thumb); else side with more space
     const spaceAbove = r.top;
     const spaceLeft  = r.left;
     const spaceRight = window.innerWidth - r.right;
-    if (spaceAbove > th + 12) {
+    if (spaceAbove > th + TT_GAP + 6) {
       left = r.left + r.width / 2 - tw / 2;
-      top  = r.top - th - 8;
+      top  = r.top - th - TT_GAP;
     } else if (spaceRight >= spaceLeft) {
-      left = r.right + 12;
+      left = r.right + TT_GAP;
       top  = r.top + r.height / 2 - th / 2;
     } else {
-      left = r.left - tw - 12;
+      left = r.left - tw - TT_GAP;
       top  = r.top + r.height / 2 - th / 2;
     }
   }
-  // Final clamp so the tooltip never extends past the viewport edges
+  // Clamp into viewport
   left = Math.max(margin, Math.min(left, window.innerWidth  - tw - margin));
   top  = Math.max(margin, Math.min(top,  window.innerHeight - th - margin));
   tooltipEl.style.left = left + 'px';
   tooltipEl.style.top  = top  + 'px';
 }
-function hideTooltip() { tooltipEl.classList.remove('show'); }
 
 function bindTooltip(el) {
   const text = el.dataset.tip;
   if (!text) return;
   if (canHover) {
-    el.addEventListener('mouseenter', () => showTooltip(el, text));
-    el.addEventListener('mouseleave', hideTooltip);
+    el.addEventListener('mouseenter', () => scheduleTooltip(el, text));
+    el.addEventListener('mouseleave', () => { cancelTooltip(); hideTooltip(); });
+    // Clicks should dismiss any pending or visible tooltip — feels off
+    // to see a label appear right as you're acting on the control.
+    el.addEventListener('mousedown',  () => { cancelTooltip(); hideTooltip(); });
   }
-  // Long-press only — 600 ms is comfortable for an intentional hold,
-  // long enough that it won't fire on a normal tap.
+  // Touch: explicit long-press, no warm/cold logic
   let timer = null;
   el.addEventListener('touchstart', () => {
     timer = setTimeout(() => showTooltip(el, text), 600);
