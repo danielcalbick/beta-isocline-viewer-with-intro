@@ -757,8 +757,13 @@ async function scene7(entry) {
                             // then holds at target while β finishes oscillating
 
   await tweenCurve({
-    duration: 22000,                              // shortened (was 28s)
-    curve: (t) => ({ fineDelta: 0.5 * Math.sin(2 * Math.PI * t) }),
+    duration: 25000,                              // slightly longer (was 22s)
+    // Monotonic one-direction sweep: easeInOutCubic over 0 → +1 means Δβ
+    // enters and exits with zero velocity, so the slider gently accelerates
+    // from center and decelerates to a stop at the right edge. The built-in
+    // ease-out is the "ramp down" — by t=0.75 we've covered ~94% of the
+    // motion; the last quarter just creeps the slider into its final rest.
+    curve: (t) => ({ fineDelta: easeInOutCubic(t) }),
     onUpdate: (_, t) => {
       const e = easeInOutCubic(Math.min(1, t / CAM_FINISH));
       const tx = window.S.tx;
@@ -768,6 +773,14 @@ async function scene7(entry) {
     },
   });
   clearDrivingSlider();
+
+  // Cheers — acknowledge the hand-off, give the user a beat to read.
+  await showCaption(
+    `\\text{That's the tour!}
+     \\text{The controls are yours now.}`
+  );
+  await delay(2800);
+
   exitFineMode();
   await delay(1000);
 }
