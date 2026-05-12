@@ -85,10 +85,8 @@ function boot() {
     debug: (new URLSearchParams(location.search).get('debug') === 'intro'),
   };
 
-  // First-visit autostart.
-  if (!localStorage.getItem(STORAGE_KEY)) {
-    setTimeout(playIntro, 600);
-  }
+  // First-visit emphasis: the INTRO button pulses (see installDOM), but the
+  // intro does NOT auto-play. The user clicks INTRO to start it.
 }
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', boot);
@@ -601,7 +599,7 @@ async function scene2(entry) {
  * Parameterize α₀=½−η, α₁=½+η with nwalks=2, then expand η. */
 async function scene3(entry) {
   await showCaption(
-    `\\xi(s)\\,\\zeta(s)=\\xi(1{-}s)\\,\\zeta(1{-}s)
+    `\\xi(s)=\\xi(1{-}s)
      \\Rightarrow\\;\\text{mirror about}\\;\\mathrm{Re}(s)=\\tfrac12
      \\text{on this }\\beta\\text{-isocline}`
   );
@@ -741,9 +739,31 @@ async function scene7(entry) {
   enterFineMode(60);
   setDrivingSlider(['sl-fine-delta', 'sl-beta']);
   await delay(400);
+
+  // Snapshot the camera AFTER wideCamera() has set it, then lerp toward a
+  // close-up centered on the U(1) reference circles (drawn at data origin —
+  // screen position is (S.tx.cx, S.tx.cy); on-screen radius is S.tx.scale).
+  // Putting origin at screen center and choosing scale ≈ 15% of the smaller
+  // viewport edge puts the unit circle at ~30% of that edge.
+  const startTx = { ...window.S.tx };
+  const ow = window.innerWidth, oh = window.innerHeight;
+  const targetTx = {
+    cx:    ow / 2,
+    cy:    oh / 2,
+    scale: Math.min(ow, oh) * 0.15,
+  };
+
   await tweenCurve({
-    duration: 53000,                              // reduced by ~2/3 from 160s
+    duration: 28000,                              // shortened (was 53s)
     curve: (t) => ({ fineDelta: 0.5 * Math.sin(2 * Math.PI * t) }),
+    onUpdate: (_, t) => {
+      // Ease the camera into the close-up across the whole sweep.
+      const e = easeInOutCubic(t);
+      const tx = window.S.tx;
+      tx.scale = startTx.scale + (targetTx.scale - startTx.scale) * e;
+      tx.cx    = startTx.cx    + (targetTx.cx    - startTx.cx)    * e;
+      tx.cy    = startTx.cy    + (targetTx.cy    - startTx.cy)    * e;
+    },
   });
   clearDrivingSlider();
   exitFineMode();
