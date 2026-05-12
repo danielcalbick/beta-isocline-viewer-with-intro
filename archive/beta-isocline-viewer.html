@@ -5,8 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>ζ — β-Isocline Explorer</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
-<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
 <style>
 :root {
   --bg: #06060a;
@@ -243,28 +241,6 @@ input[type=range]::-moz-range-thumb {
 
 /* ── FINE TUNE ──────────────────────────────────── */
 .beta-rt { display:flex; gap:8px; align-items:baseline; }
-
-/* Δβ row right-side group: value + play/pause + speed pills */
-.delta-rt { display:flex; gap:6px; align-items:center; }
-.auto-btn {
-  background:rgba(255,255,255,0.04);
-  border:1px solid var(--panel-border); border-radius:100px;
-  color:rgba(255,255,255,0.45);
-  font-family:inherit; font-size:9px; letter-spacing:0.05em;
-  padding:2px 8px; min-height:20px; min-width:28px;
-  cursor:pointer; transition:all 0.15s;
-  -webkit-tap-highlight-color:transparent;
-  white-space:nowrap; line-height:1;
-  display:inline-flex; align-items:center; justify-content:center;
-}
-.auto-btn:hover  { background:rgba(255,255,255,0.08); color:rgba(255,255,255,0.78); }
-.auto-btn:active { background:rgba(255,255,255,0.06); }
-.auto-btn.on {
-  background:rgba(147,197,253,0.14);
-  border-color:rgba(147,197,253,0.45);
-  color:var(--accent);
-}
-.auto-btn.disabled { opacity:0.32; pointer-events:none; }
 .fine-btn {
   background:rgba(255,255,255,0.04);
   border:1px solid var(--panel-border); border-radius:100px;
@@ -281,36 +257,6 @@ input[type=range]::-moz-range-thumb {
   background:rgba(147,197,253,0.12);
   border-color:rgba(147,197,253,0.35);
   color:var(--accent);
-}
-
-/* FE ξ(s) Dual — pill below the α slider pair. Same pill chassis as .fine-btn
- * but uses the violet "intro" accent so it's distinguishable from fine-tune. */
-.fe-dual-row {
-  display:flex; justify-content:center; align-items:center;
-  padding:6px 0 10px;
-}
-.fe-dual-btn {
-  background:rgba(255,255,255,0.04);
-  border:1px solid var(--panel-border); border-radius:100px;
-  color:rgba(255,255,255,0.45);
-  font-family:inherit; font-size:9px; letter-spacing:0.10em;
-  padding:4px 12px; min-height:23px;
-  cursor:pointer; transition:all 0.18s;
-  -webkit-tap-highlight-color:transparent;
-  white-space:nowrap; text-transform:uppercase;
-}
-.fe-dual-btn:hover  { background:rgba(255,255,255,0.08); color:rgba(255,255,255,0.78); }
-.fe-dual-btn:active { background:rgba(255,255,255,0.06); }
-.fe-dual-btn.on {
-  background:rgba(180,150,255,0.14);
-  border-color:rgba(205,175,255,0.55);
-  color:rgba(232,212,255,1);
-  box-shadow:0 0 12px rgba(180,150,255,0.32);
-}
-input[type=range].disabled,
-.lval.disabled {
-  opacity:0.32;
-  pointer-events:none;
 }
 .fine-sub {
   margin-top:9px;
@@ -664,28 +610,19 @@ input[type=range].disabled,
         <div class="lbl">
           <span class="lname">β</span>
           <span class="beta-rt">
-            <span class="lval" id="v-beta" onclick="editVal('beta')">6509.657535457885</span>
+            <span class="lval" id="v-beta" onclick="editVal('beta')">1234.000</span>
             <button class="fine-btn" id="fine-btn" onclick="toggleFine()">FINE</button>
           </span>
         </div>
-        <input type="range" id="sl-beta">
+        <input type="range" id="sl-beta" min="1" max="10000" step="0.5" value="1234">
         <div class="fine-sub" id="fine-sub">
           <div class="row">
-            <div class="lbl">
-              <span class="lname">Δβ</span>
-              <span class="delta-rt">
-                <span class="lval" id="v-fine-delta">+0.000</span>
-                <button class="auto-btn" id="auto-beta-btn" type="button"
-                        title="Auto-sweep Δβ" onclick="toggleAutoBeta()">▶</button>
-                <button class="auto-btn disabled" id="auto-beta-speed-btn" type="button"
-                        title="Cycle sweep speed" onclick="cycleAutoBetaSpeed()">1×</button>
-              </span>
-            </div>
-            <input type="range" id="sl-fine-delta">
+            <div class="lbl"><span class="lname">Δβ</span><span class="lval" id="v-fine-delta">+0.000</span></div>
+            <input type="range" id="sl-fine-delta" min="-1" max="1" step="0.001" value="0">
           </div>
           <div class="row">
             <div class="lbl"><span class="lname">σ</span><span class="lval" id="v-sigma">3.00</span></div>
-            <input type="range" id="sl-sigma">
+            <input type="range" id="sl-sigma" min="-3" max="2" step="0.05" value="0.4771212547196624">
           </div>
         </div>
       </div>
@@ -693,17 +630,12 @@ input[type=range].disabled,
       <div class="row range-pair mrow" data-idx="1">
         <div>
           <div class="lbl"><span class="lname">α₀</span><span class="lval" id="v-alpha-lo" onclick="editVal('alphaLo')"> 0.200</span></div>
-          <input type="range" id="sl-alpha-lo">
+          <input type="range" id="sl-alpha-lo" min="-3" max="6.95" step="0.01" value="0.2">
         </div>
         <div>
           <div class="lbl"><span class="lname">α₁</span><span class="lval" id="v-alpha-hi" onclick="editVal('alphaHi')">2.000</span></div>
-          <input type="range" id="sl-alpha-hi">
+          <input type="range" id="sl-alpha-hi" min="-2.95" max="7" step="0.01" value="2">
         </div>
-      </div>
-
-      <div class="row fe-dual-row mrow" data-idx="1">
-        <button class="fe-dual-btn" id="fe-dual-btn" type="button"
-                onclick="toggleFEDual(event)">FE&nbsp;&xi;(s)&nbsp;Dual</button>
       </div>
 
       <div class="mini-dots" id="mini-dots">
@@ -752,11 +684,11 @@ input[type=range].disabled,
     <div class="panel-body" id="pb-traj"><div class="panel-inner">
       <div class="row">
         <div class="lbl"><span class="lname">N<span class="sub">α &nbsp;walks</span></span><span class="lval" id="v-nwalks" onclick="editVal('nwalks')">100</span></div>
-        <input type="range" id="sl-nwalks">
+        <input type="range" id="sl-nwalks" min="50" max="1000" step="10" value="100">
       </div>
       <div class="row">
         <div class="lbl"><span class="lname">opacity</span><span class="lval" id="v-trans-traj">0.40</span></div>
-        <input type="range" id="sl-trans-traj">
+        <input type="range" id="sl-trans-traj" min="0.01" max="1" step="0.01" value="0.4">
       </div>
       <div class="row">
         <div class="lbl" style="margin-bottom:0"><span class="section-cap">colormap (along time)</span></div>
@@ -779,7 +711,7 @@ input[type=range].disabled,
     <div class="panel-body" id="pb-iso"><div class="panel-inner">
       <div class="row">
         <div class="lbl"><span class="lname">opacity</span><span class="lval" id="v-trans-iso">0.80</span></div>
-        <input type="range" id="sl-trans-iso">
+        <input type="range" id="sl-trans-iso" min="0.01" max="1" step="0.01" value="0.8">
       </div>
       <div class="row">
         <div class="lbl" style="margin-bottom:0"><span class="section-cap">colormap (one per τ)</span></div>
@@ -828,83 +760,6 @@ input[type=range].disabled,
 
 <script>
 /* ═══════════════════════════════════════════════════
-   DEFAULTS  ── single source of truth for every input.
-   Edit values here to change initial state and accepted ranges.
-     slider: attributes pushed onto the <input type="range"> on init
-     edit:   accepted range when the user clicks the value readout
-             to type a number directly (often wider than slider)
-     value:  initial value reflected into S and onto the slider
-═══════════════════════════════════════════════════ */
-const DEFAULTS = {
-  beta: {
-    slider: { min: 1,    max: 10000, step: 0.5 },
-    edit:   { min: 0.1,  max: 1e7 },
-    value:  6509.657535457885,
-  },
-  alphaLo: {
-    slider: { min: -3,   max: 7,     step: 0.01 },
-    edit:   { min: -10,  max: 10 },
-    value:  0.2,
-  },
-  alphaHi: {
-    slider: { min: -3,   max: 7,     step: 0.01 },
-    edit:   { min: -10,  max: 10 },
-    value:  4,
-  },
-  nwalks: {
-    slider: { min: 1,    max: 1000,  step: 10 },
-    edit:   { min: 1,    max: 1000 },
-    value:  100,
-  },
-  sigma: {
-    slider: { min: -3,   max: 2,     step: 0.05 },
-    value:  Math.log10(3),    // σ = 3.0  ⇒  exponent log₁₀(3) ≈ 0.477
-  },
-  fineDelta: {
-    slider: { min: -1,   max: 1,     step: 0.001 },
-    value:  0,
-  },
-  transTraj: {
-    slider: { min: 0.01, max: 1,     step: 0.01 },
-    value:  0.4,
-  },
-  transIso: {
-    slider: { min: 0.01, max: 1,     step: 0.01 },
-    value:  0.8,
-  },
-  // auto Δβ sweep — sinusoid between extents while play is on
-  autoBeta: {
-    speeds:      [0.25, 0.5, 1, 2, 4],   // multipliers cycled by speed pill
-    initSpeed:   1,
-    basePeriod:  8000,                   // ms for a full sine cycle at speed=1
-    enabled:     false,
-  },
-  // misc display tuning (no slider — read into S only)
-  display: {
-    bgValue: 0.07,
-    u1:      true,
-    tx:      { scale: 50, cx: 400, cy: 400 },
-  },
-};
-
-function applyInputDefaults() {
-  const apply = (id, d) => {
-    const el = document.getElementById(id); if (!el || !d) return;
-    if (d.min  !== undefined) el.min  = d.min;
-    if (d.max  !== undefined) el.max  = d.max;
-    if (d.step !== undefined) el.step = d.step;
-  };
-  apply('sl-beta',        DEFAULTS.beta.slider);
-  apply('sl-alpha-lo',    DEFAULTS.alphaLo.slider);
-  apply('sl-alpha-hi',    DEFAULTS.alphaHi.slider);
-  apply('sl-nwalks',      DEFAULTS.nwalks.slider);
-  apply('sl-sigma',       DEFAULTS.sigma.slider);
-  apply('sl-fine-delta',  DEFAULTS.fineDelta.slider);
-  apply('sl-trans-traj',  DEFAULTS.transTraj.slider);
-  apply('sl-trans-iso',   DEFAULTS.transIso.slider);
-}
-
-/* ═══════════════════════════════════════════════════
    COLORMAPS
 ═══════════════════════════════════════════════════ */
 function lerpS(t,s){
@@ -946,29 +801,23 @@ function cmapGrad(fn) {
    STATE
 ═══════════════════════════════════════════════════ */
 const S = {
-  beta:       DEFAULTS.beta.value,
-  nwalks:     DEFAULTS.nwalks.value,
-  alphaLo:    DEFAULTS.alphaLo.value,
-  alphaHi:    DEFAULTS.alphaHi.value,
+  beta: 1234,
+  nwalks: 100,
+  alphaLo: 0.2, alphaHi: 2,
   pd: null,                       // {xMat, yMat, nrows, nwalks, tc}
-  tx:   { ...DEFAULTS.display.tx },
-  traj: { vis:true, opacity: DEFAULTS.transTraj.value, cmap:'bwr' },
-  iso:  { vis:true, opacity: DEFAULTS.transIso.value,  cmap:'plasma' },
+  tx: { scale:50, cx:400, cy:400 },
+  traj: { vis:true, opacity:0.4, cmap:'bwr' },
+  iso:  { vis:true, opacity:0.8, cmap:'plasma' },
   // fine-tune: β = betaCenter + 10^sigmaExp · fineDelta when isFine
-  isFine:     false,
-  betaCenter: DEFAULTS.beta.value,
-  sigmaExp:   DEFAULTS.sigma.value,
-  fineDelta:  DEFAULTS.fineDelta.value,
+  isFine: false,
+  betaCenter: 1234,
+  sigmaExp: Math.log10(3),    // σ default = 3.0 (10^0.477)
+  fineDelta: 0,
   // mini-mode carousel idx (only matters when params panel is folded)
   miniIdx: 0,
-  // FE ξ(s) dual mode: when on, α₁ is tethered to 1 − α₀ (mirror about Re=½)
-  feDual: false,
-  // auto Δβ sweep (only meaningful while isFine is true)
-  autoBeta:      DEFAULTS.autoBeta.enabled,
-  autoBetaSpeed: DEFAULTS.autoBeta.initSpeed,
   // display
-  bgValue: DEFAULTS.display.bgValue,
-  u1:      DEFAULTS.display.u1,
+  bgValue: 0.024,    // canvas background grayscale [0..1]
+  u1: true,          // render U(1) reference circles
 };
 const POPEN = { params:true, traj:false, iso:false };
 const N_MINI = 2; // β, α-pair
@@ -1661,7 +1510,6 @@ function syncFineUI() {
   document.getElementById('v-sigma').textContent = fmtSigma(Math.pow(10, S.sigmaExp));
 }
 function toggleFine() {
-  if (S.autoBeta) pauseAutoBetaIfRunning();   // exiting fine mode stops the sweep
   S.isFine = !S.isFine;
   // Recenter on entry/exit so the displayed β is preserved with delta=0
   S.betaCenter = S.beta;
@@ -1673,76 +1521,6 @@ function toggleFine() {
   // Opening fine grows the panel — clamp after the max-height transition
   if (S.isFine) setTimeout(clampPanelToViewport, 320);
   // β didn't actually change → no recompute needed
-}
-
-function toggleFEDual(ev) {
-  if (ev && ev.stopPropagation) ev.stopPropagation();
-  S.feDual = !S.feDual;
-  const btn   = document.getElementById('fe-dual-btn');
-  const slHi  = document.getElementById('sl-alpha-hi');
-  const valHi = document.getElementById('v-alpha-hi');
-  if (btn) btn.classList.toggle('on', S.feDual);
-  if (slHi) { slHi.disabled = S.feDual; slHi.classList.toggle('disabled', S.feDual); }
-  if (valHi) valHi.classList.toggle('disabled', S.feDual);
-  if (S.feDual) {
-    // Snap α₁ to the FE dual: α₁ = 1 − α₀  (mirror across Re(s)=½)
-    S.alphaHi = 1 - S.alphaLo;
-    syncAlphaUI();
-    recomputeAndDraw(false);
-  }
-}
-
-/* ─── auto Δβ sweep ───────────────────────────────────
- * While S.autoBeta is true, Δβ = sin(2π·t/period) with
- * period = DEFAULTS.autoBeta.basePeriod / S.autoBetaSpeed.
- * Any explicit user action on β or its neighbors pauses the
- * sweep via pauseAutoBetaIfRunning(). */
-let _autoBetaRaf = null;
-let _autoBetaT0  = 0;
-function _autoBetaPeriod() { return DEFAULTS.autoBeta.basePeriod / S.autoBetaSpeed; }
-function _autoBetaTick(now) {
-  if (!S.autoBeta) return;
-  const t = (now - _autoBetaT0) / _autoBetaPeriod();
-  const d = Math.sin(2 * Math.PI * t);
-  S.fineDelta = d;
-  S.beta = S.betaCenter + Math.pow(10, S.sigmaExp) * d;
-  syncFineUI(); syncBetaUI();
-  recomputeAndDraw(false);
-  _autoBetaRaf = requestAnimationFrame(_autoBetaTick);
-}
-function _autoBetaAnchor() {
-  // Re-anchor t₀ so the next tick's sin() matches the current Δβ continuously.
-  // asin returns the rising half of the cycle, which is the natural resume.
-  const clamped = Math.max(-1, Math.min(1, S.fineDelta));
-  const phase   = Math.asin(clamped) / (2 * Math.PI);   // ∈ [-1/4, +1/4]
-  _autoBetaT0   = performance.now() - phase * _autoBetaPeriod();
-}
-function toggleAutoBeta() {
-  if (!S.isFine) return;                          // only meaningful in fine mode
-  S.autoBeta = !S.autoBeta;
-  const btn = document.getElementById('auto-beta-btn');
-  const spd = document.getElementById('auto-beta-speed-btn');
-  if (btn) { btn.textContent = S.autoBeta ? '⏸' : '▶'; btn.classList.toggle('on', S.autoBeta); }
-  if (spd) spd.classList.toggle('disabled', !S.autoBeta);
-  if (S.autoBeta) {
-    _autoBetaAnchor();
-    _autoBetaRaf = requestAnimationFrame(_autoBetaTick);
-  } else if (_autoBetaRaf) {
-    cancelAnimationFrame(_autoBetaRaf);
-    _autoBetaRaf = null;
-  }
-}
-function cycleAutoBetaSpeed() {
-  if (!S.autoBeta) return;
-  const speeds = DEFAULTS.autoBeta.speeds;
-  const i = speeds.indexOf(S.autoBetaSpeed);
-  S.autoBetaSpeed = speeds[(i + 1) % speeds.length];
-  _autoBetaAnchor();                              // keep phase continuous
-  const spd = document.getElementById('auto-beta-speed-btn');
-  if (spd) spd.textContent = S.autoBetaSpeed + '×';
-}
-function pauseAutoBetaIfRunning() {
-  if (S.autoBeta) toggleAutoBeta();
 }
 function syncAlphaUI()   {
   document.getElementById('v-alpha-lo').textContent = fmtAlpha(S.alphaLo);
@@ -1772,7 +1550,6 @@ function syncDots() {
 }
 
 document.getElementById('sl-beta').addEventListener('input', e => {
-  pauseAutoBetaIfRunning();
   const v = parseFloat(e.target.value);
   if (S.isFine) {
     S.betaCenter = v;
@@ -1784,33 +1561,27 @@ document.getElementById('sl-beta').addEventListener('input', e => {
   syncBetaUI(); recomputeAndDraw(false);
 });
 document.getElementById('sl-fine-delta').addEventListener('input', e => {
-  pauseAutoBetaIfRunning();
   S.fineDelta = parseFloat(e.target.value);
   S.beta = S.betaCenter + Math.pow(10, S.sigmaExp) * S.fineDelta;
   syncFineUI(); syncBetaUI(); recomputeAndDraw(false);
 });
 document.getElementById('sl-sigma').addEventListener('input', e => {
-  pauseAutoBetaIfRunning();
   S.sigmaExp = parseFloat(e.target.value);
-  // Re-center Δβ at the current β so the new σ controls step size from here.
-  // β is unchanged: the user keeps the value they were viewing, and can now
-  // slide Δβ up/down with the new step granularity.
-  S.betaCenter = S.beta;
-  S.fineDelta  = 0;
+  // Keep β and Δβ unchanged — absorb the σ change into betaCenter so that
+  // β = betaCenter + 10^σ · Δβ still holds with the new σ.
+  S.betaCenter = S.beta - Math.pow(10, S.sigmaExp) * S.fineDelta;
   syncFineUI();
-  syncBetaUI();
   // β didn't change → no recompute
 });
-
 document.getElementById('sl-alpha-lo').addEventListener('input', e => {
-  S.alphaLo = parseFloat(e.target.value);
-  if (S.feDual) S.alphaHi = 1 - S.alphaLo;     // dual: α₁ = 1 − α₀
-  syncAlphaUI(); recomputeAndDraw(false);
+  const v = parseFloat(e.target.value);
+  if (v >= S.alphaHi - 0.05) { e.target.value = S.alphaHi - 0.05; return; }
+  S.alphaLo = v; syncAlphaUI(); recomputeAndDraw(false);
 });
 document.getElementById('sl-alpha-hi').addEventListener('input', e => {
-  if (S.feDual) return;                         // α₁ is tethered when FE Dual is on
-  S.alphaHi = parseFloat(e.target.value);
-  syncAlphaUI(); recomputeAndDraw(false);
+  const v = parseFloat(e.target.value);
+  if (v <= S.alphaLo + 0.05) { e.target.value = S.alphaLo + 0.05; return; }
+  S.alphaHi = v; syncAlphaUI(); recomputeAndDraw(false);
 });
 document.getElementById('sl-nwalks').addEventListener('input', e => {
   S.nwalks = parseInt(e.target.value); syncNwalksUI(); recomputeAndDraw(false);
@@ -1830,25 +1601,13 @@ function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
 function editVal(which) {
   const map = {
     beta:    { vid:'v-beta',     get: () => S.beta,    set: v => {
-        pauseAutoBetaIfRunning();
-        S.beta = clamp(v, DEFAULTS.beta.edit.min, DEFAULTS.beta.edit.max);
+        S.beta = clamp(v, 0.1, 1e7);
         S.betaCenter = S.beta; S.fineDelta = 0;
         syncBetaUI(); syncFineUI(); recomputeAndDraw(true);
       } },
-    alphaLo: { vid:'v-alpha-lo', get: () => S.alphaLo, set: v => {
-        S.alphaLo = clamp(v, DEFAULTS.alphaLo.edit.min, DEFAULTS.alphaLo.edit.max);
-        if (S.feDual) S.alphaHi = 1 - S.alphaLo;       // dual: α₁ = 1 − α₀
-        syncAlphaUI(); recomputeAndDraw(false);
-      } },
-    alphaHi: { vid:'v-alpha-hi', get: () => S.alphaHi, set: v => {
-        if (S.feDual) return;                          // α₁ tethered when FE Dual is on
-        S.alphaHi = clamp(v, DEFAULTS.alphaHi.edit.min, DEFAULTS.alphaHi.edit.max);
-        syncAlphaUI(); recomputeAndDraw(false);
-      } },
-    nwalks:  { vid:'v-nwalks',   get: () => S.nwalks,  set: v => {
-        S.nwalks = clamp(Math.round(v), DEFAULTS.nwalks.edit.min, DEFAULTS.nwalks.edit.max);
-        syncNwalksUI(); recomputeAndDraw(false);
-      } },
+    alphaLo: { vid:'v-alpha-lo', get: () => S.alphaLo, set: v => { S.alphaLo = clamp(v, -10, S.alphaHi-0.05); syncAlphaUI(); recomputeAndDraw(false); } },
+    alphaHi: { vid:'v-alpha-hi', get: () => S.alphaHi, set: v => { S.alphaHi = clamp(v, S.alphaLo+0.05, 10); syncAlphaUI(); recomputeAndDraw(false); } },
+    nwalks:  { vid:'v-nwalks',   get: () => S.nwalks,  set: v => { S.nwalks = clamp(Math.round(v), 50, 1000); syncNwalksUI(); recomputeAndDraw(false); } },
   };
   const m = map[which]; if (!m) return;
   const span = document.getElementById(m.vid);
@@ -2088,7 +1847,6 @@ function bindTooltip(el) {
    INIT
 ═══════════════════════════════════════════════════ */
 resizeCanvas();
-applyInputDefaults();
 buildCmapChips('traj', 'traj');
 buildCmapChips('iso',  'iso');
 syncBetaUI(); syncAlphaUI(); syncNwalksUI(); syncTransUI(); syncFineUI(); syncDots();
@@ -2097,14 +1855,7 @@ S.pd = compute(S.beta, S.nwalks, S.alphaLo, S.alphaHi);
 document.getElementById('s-N').textContent = S.pd.nrows;
 autoFit(S.pd);
 draw();
-window.S = S;
-window.recomputeAndDraw = recomputeAndDraw;
-window.syncAlphaUI  = syncAlphaUI;
-window.syncBetaUI   = syncBetaUI;
-window.syncNwalksUI = syncNwalksUI;
-window.toggleViz    = toggleViz;
-window.syncFineUI   = syncFineUI;
+
 </script>
-<script src="intro-isocline.js"></script>
 </body>
 </html>

@@ -2,6 +2,14 @@
 This file is for logging interesting values for 𝛽 that I find in my explorations of the isocline viewer.
 
 
-4474.252
+4474.252563480249 180º double back so close to being a zeta zero but being deflected just before the origin to follow the real line
+
+7835.946815878414 good double back surjective example
+
+8816.446975954479 good late deflection around 𝛼_0 ~0.5
+
+8812.380078472517 another decent surjective example
 
 
+6509.657535457885 (start here)
+[6508.557305258809]±30 shows a great example of a coherence harmonic that unfurls and refurls as the 𝛽-value changes in the same neighbor hood
