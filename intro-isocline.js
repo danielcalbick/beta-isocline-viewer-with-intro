@@ -583,10 +583,9 @@ async function scene2(entry) {
   setDrivingSlider(['sl-fine-delta', 'sl-beta']);
   await delay(400);
   await tweenCurve({
-    duration: 60000,
-    // Half-excursion sine: Δβ stays inside [-0.5, +0.5]. Same period as a full
-    // cycle, but max (d/dt)β is halved — gentler unfurl/refurl through the
-    // coherence harmonic without touching the slider extremes.
+    duration: 4000,                                 // quick reference (was 60s)
+    // Half-excursion sine: Δβ stays inside [-0.5, +0.5]. One full cycle in 4s
+    // gives a brisk "this is what Δβ does" demonstration before scene 3.
     curve: (t) => ({ fineDelta: 0.5 * Math.sin(2 * Math.PI * t) }),
   });
   clearDrivingSlider();
@@ -736,7 +735,9 @@ async function scene7(entry) {
      \\text{a 3D projective skeleton on}\\;\\mathbb{C}`
   );
   wideCamera(0.50);
-  enterFineMode(30);     // σ halved (was 60) — slower max (d/dt)β for the close
+  enterFineMode(5);      // σ much lower (was 30) — β-range ±2.5 and a 6× slower
+                         // max (d/dt)β than the previous edit. Pairs naturally
+                         // with the U(1) close-up: tight β-zoom near the harmonic.
   setDrivingSlider(['sl-fine-delta', 'sl-beta']);
   await delay(400);
 
