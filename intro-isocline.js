@@ -779,7 +779,19 @@ async function scene7(entry) {
     `\\text{That's the tour!}
      \\text{The controls are yours now.}`
   );
-  await delay(2800);
+
+  // While the cheers text holds, drift α₀ up to 0.3 so the divergent
+  // lower-edge walks shrink and everything fits inside the U(1) close-up
+  // before the user takes control. refit:false keeps the camera locked.
+  setDrivingSlider(['sl-alpha-lo']);
+  const alphaTween = tweenState({
+    from: { alphaLo: window.S.alphaLo },
+    to:   { alphaLo: 0.3 },
+    duration: 2200,
+    refit: false,
+  });
+  await Promise.all([alphaTween, delay(2800)]);
+  clearDrivingSlider();
 
   exitFineMode();
   await delay(1000);
