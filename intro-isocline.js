@@ -583,7 +583,7 @@ async function scene2(entry) {
   setDrivingSlider(['sl-fine-delta', 'sl-beta']);
   await delay(400);
   await tweenCurve({
-    duration: 120000,
+    duration: 60000,
     // Half-excursion sine: Δβ stays inside [-0.5, +0.5]. Same period as a full
     // cycle, but max (d/dt)β is halved — gentler unfurl/refurl through the
     // coherence harmonic without touching the slider extremes.
@@ -736,7 +736,7 @@ async function scene7(entry) {
      \\text{a 3D projective skeleton on}\\;\\mathbb{C}`
   );
   wideCamera(0.50);
-  enterFineMode(60);
+  enterFineMode(30);     // σ halved (was 60) — slower max (d/dt)β for the close
   setDrivingSlider(['sl-fine-delta', 'sl-beta']);
   await delay(400);
 
@@ -752,13 +752,14 @@ async function scene7(entry) {
     cy:    oh / 2,
     scale: Math.min(ow, oh) * 0.15,
   };
+  const CAM_FINISH = 0.7;   // camera reaches U(1) close-up at 70% of the sweep,
+                            // then holds at target while β finishes oscillating
 
   await tweenCurve({
-    duration: 28000,                              // shortened (was 53s)
+    duration: 22000,                              // shortened (was 28s)
     curve: (t) => ({ fineDelta: 0.5 * Math.sin(2 * Math.PI * t) }),
     onUpdate: (_, t) => {
-      // Ease the camera into the close-up across the whole sweep.
-      const e = easeInOutCubic(t);
+      const e = easeInOutCubic(Math.min(1, t / CAM_FINISH));
       const tx = window.S.tx;
       tx.scale = startTx.scale + (targetTx.scale - startTx.scale) * e;
       tx.cx    = startTx.cx    + (targetTx.cx    - startTx.cx)    * e;
